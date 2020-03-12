@@ -36,9 +36,8 @@ predicate nodeInit(s: Node, f:nat, n: nat, id: nat)
 /* Transition of a participant node from Phase1 to Phase 2 */
 predicate receiveSymbols(s: Node, s':Node, received_symbols: seq<nat>) 
     requires s.n == 3*s.f + 1;
-    requires s.state == Phase1;
     requires 0 <= s.id < s.n;
-    requires s.n == |s.codeword|;
+    requires nodeInit(s, s.f, s.n, s.id);
     requires |received_symbols| == |s.codeword|;
     requires received_symbols[s.id] == s.codeword[s.id];
 {
