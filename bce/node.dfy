@@ -21,18 +21,19 @@ datatype Node = Node(
 /*                                  PROTOCOL STEPS                                      */
 /****************************************************************************************/                 
 
-predicate nodeInit(s: Node, f:nat, n: nat, id: nat, my_codeword: seq<nat>)
+/* Initial state of a participant node */
+predicate nodeInit(s: Node, f:nat, n: nat, id: nat)
     requires n == 3*f + 1;
     requires 0 <= id < n;
-    requires n == |my_codeword|;
 {
     && s.f == f
     && s.n == n
     && s.id == id
-    && s.codeword == my_codeword
+    && |s.codeword| == n
     && s.state == Phase1
 }
 
+/* Transition of a participant node from Phase1 to Phase 2 */
 predicate receiveSymbols(s: Node, s':Node, received_symbols: seq<nat>) 
     requires s.n == 3*s.f + 1;
     requires s.state == Phase1;
@@ -46,6 +47,7 @@ predicate receiveSymbols(s: Node, s':Node, received_symbols: seq<nat>)
         state := Phase2)
 }
 
+/* Transition of a participant node from Phase2 to Decided */
 predicate receiveSyndromesAndDecide(s: Node, s': Node, syndromes: seq<syndrome>)
     requires s.n == 3*s.f + 1;
     requires s.state == Phase2;
