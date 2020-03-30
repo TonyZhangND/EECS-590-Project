@@ -34,9 +34,7 @@ predicate serviceExchangeSymbols(s: Service, s': Service)
     var symbolsForExchange := symbolsToExchange(s.nodes);
     // symbolsForExchange[i] is the seq of symbols that node i receives.
     // For any node i, symbolsForExchange[i][j] contains the jth symbol of node j.
-    lemma_Exchanged_Symbols_Are_Extracted(s.nodes, symbolsForExchange, 0);
-    assert |symbolsForExchange| == |s.nodes|;
-    assert forall sym :: sym in symbolsForExchange ==> |sym| == |s.nodes|;
+    lemma_Exchanged_Symbols_Are_Extracted(s.nodes);
     && s' == s.(nodes := s'.nodes, state := SPhase2)
     && |s'.nodes| == |s.nodes|
     && forall id :: 0 <= id < |s.nodes| ==> 
@@ -125,22 +123,36 @@ lemma {:induction nodes} lemma_Extract_Generates_One_Symbol_For_Each_Node(nodes:
 {}
 
 
-lemma  {:induction nodes} lemma_Exchanged_Symbols_Are_Extracted(nodes: seq<Node>, symbolsForExchange: seq<seq<symbol>>, i: nat) 
+/* Wrapper for lemma_Exchanged_Symbols_Are_Extracted_Helper */
+lemma {:induction nodes} lemma_Exchanged_Symbols_Are_Extracted(nodes: seq<Node>) 
     requires forall s :: s in nodes ==> s.n == 3*s.f + 1;
     requires forall s :: s in nodes ==> 0 <= s.id < s.n;
     requires forall s :: s in nodes ==> nodeInit(s, s.f, s.n, s.id);
-    requires symbolsForExchange == symbolsToExchange(nodes);
-    ensures |symbolsForExchange| == |nodes|;
+    ensures |symbolsToExchange(nodes)| == |nodes|;
     ensures |extractSymbols(nodes)| == |nodes|;
-    ensures forall id :: 0 <= id < |symbolsForExchange| ==> symbolsForExchange[id] == extractSymbols(nodes);
+    ensures forall id :: 0 <= id < |symbolsToExchange(nodes)| ==> symbolsToExchange(nodes)[id] == extractSymbols(nodes);
 {
-    //TODO
-    lemma_Extract_Generates_One_Symbol_For_Each_Node(nodes);
-    lemma_Exchange_Generates_One_SymbolSeq_For_Each_Node(nodes, 0);
-    assert |symbolsForExchange| == |nodes|;
-    assert forall id :: 0 <= id < |symbolsForExchange| ==> symbolsForExchange[id] == extractSymbols(nodes);
-    // assert forall symbseq :: symbseq in symbolsForExchange ==> symbseq == extractSymbols(nodes);
+    lemma_Exchanged_Symbols_Are_Extracted_Helper(nodes, 0);
 }
 
-
+/* Proof that every element of symbolsToExchange(nodes) is an instance of extractSymbols(nodes) */
+lemma  {:induction i} lemma_Exchanged_Symbols_Are_Extracted_Helper(nodes: seq<Node>, i: nat) 
+    decreases |nodes| - i;
+    requires 0 <= i <= |nodes|;
+    requires forall s :: s in nodes ==> s.n == 3*s.f + 1;
+    requires forall s :: s in nodes ==> 0 <= s.id < s.n;
+    requires forall s :: s in nodes ==> nodeInit(s, s.f, s.n, s.id);
+    ensures |symbolsToExchange(nodes)| == |nodes|;
+    ensures |extractSymbols(nodes)| == |nodes|;
+    ensures forall id :: 0 <= id < |symbolsToExchangeHelper(nodes, i)| ==> symbolsToExchangeHelper(nodes, i)[id] == extractSymbols(nodes);
+{
+    lemma_Extract_Generates_One_Symbol_For_Each_Node(nodes);
+    lemma_Exchange_Generates_One_SymbolSeq_For_Each_Node(nodes, 0);
+    if i == |nodes| {
+        assert symbolsToExchangeHelper(nodes, i) == [];
+        assert forall id :: i <= id < |symbolsToExchangeHelper(nodes, i)| ==> symbolsToExchangeHelper(nodes, i)[id] == extractSymbols(nodes);
+    } else {
+        lemma_Exchanged_Symbols_Are_Extracted_Helper(nodes, i+1);
+    }
+}
 }
