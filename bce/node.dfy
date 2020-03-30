@@ -38,8 +38,8 @@ predicate nodeReceiveSymbols(s: Node, s':Node, received_symbols: seq<nat>)
     requires s.n == 3*s.f + 1;
     requires 0 <= s.id < s.n;
     requires nodeInit(s, s.f, s.n, s.id);
-    requires |received_symbols| == |s.codeword|;
-    requires received_symbols[s.id] == s.codeword[s.id];
+    requires |received_symbols| == |s.codeword|;  // received_symbols is of correct length
+    requires received_symbols[s.id] == s.codeword[s.id]; // don't deceive myself
 {
     s' == s.(
         symbols := received_symbols,
@@ -89,6 +89,7 @@ predicate decideOnCodeWord(s: Node, syndromes: seq<syndrome>)
 
 }
 
+/* Maps Node s to its syndome */
 function computeSyndrome(s: Node) : syndrome
     requires s.state == Phase2;
     requires 0 <= s.id < s.n;
