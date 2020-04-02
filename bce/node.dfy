@@ -23,9 +23,9 @@ datatype Node = Node(
 
 /* Initial state of a participant node */
 predicate nodeInit(s: Node, f:nat, n: nat, id: nat)
-    requires n == 3*f + 1;
-    requires 0 <= id < n;
 {
+    && n == 3*f + 1
+    && 0 <= id < n
     && s.f == f
     && s.n == n
     && s.id == id
@@ -39,7 +39,7 @@ predicate nodeReceiveSymbols(s: Node, s':Node, received_symbols: seq<nat>)
     requires 0 <= s.id < s.n;
     requires nodeInit(s, s.f, s.n, s.id);
     requires |received_symbols| == |s.codeword|;  // received_symbols is of correct length
-    requires received_symbols[s.id] == s.codeword[s.id]; // don't deceive myself
+    // requires received_symbols[s.id] == s.codeword[s.id]; // don't deceive myself
 {
     s' == s.(
         symbols := received_symbols,
@@ -52,7 +52,7 @@ predicate nodeReceiveSyndromesAndDecide(s: Node, s': Node, syndromes: seq<syndro
     requires s.state == Phase2;
     requires 0 <= s.id < s.n;
     requires s.n == |s.symbols| == |s.codeword|;
-    requires s.codeword[s.id] == s.symbols[s.id];
+    // requires s.codeword[s.id] == s.symbols[s.id];
     requires s.n == |syndromes|
 {   
     if decideOnCodeWord(s, syndromes) then (
@@ -78,7 +78,7 @@ predicate decideOnCodeWord(s: Node, syndromes: seq<syndrome>)
     requires s.state == Phase2;
     requires 0 <= s.id < s.n;
     requires s.n == |s.symbols| == |s.codeword|;
-    requires s.codeword[s.id] == s.symbols[s.id];
+    // requires s.codeword[s.id] == s.symbols[s.id];
     requires s.n == |syndromes|
 {
     if countTrue(syndromes[s.id]) < s.n - s.f then (
@@ -94,7 +94,7 @@ function computeSyndrome(s: Node) : syndrome
     requires s.state == Phase2;
     requires 0 <= s.id < s.n;
     requires s.n == |s.symbols| == |s.codeword|;
-    requires s.codeword[s.id] == s.symbols[s.id];
+    // requires s.codeword[s.id] == s.symbols[s.id];
 {
     computeSyndromeHelper(s.codeword, s.symbols)   
 }
