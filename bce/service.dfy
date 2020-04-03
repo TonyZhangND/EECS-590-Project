@@ -29,7 +29,7 @@ predicate serviceInit(s: Service)
 }
 
 predicate serviceExchangeSymbols(s: Service, s': Service) 
-    requires serviceInit(s)
+    requires serviceInit(s);
 {
     var symbolsForExchange := symbolsToExchange(s.nodes);
     // symbolsForExchange[i] is the seq of symbols that node i receives.
@@ -44,15 +44,8 @@ predicate serviceExchangeSymbols(s: Service, s': Service)
 
 predicate serviceExchangeSyndromesAndDecide(s: Service, s': Service) 
     requires s.state == SPhase2
-    requires s.f > 0;
-    requires s.n == 3*s.f + 1;
-    requires |s.nodes| == s.n;
-    requires forall sn :: sn in s.nodes ==> sn.n == s.n;
-    requires forall sn :: sn in s.nodes ==> sn.f == s.f;
-    requires forall sn :: sn in s.nodes ==> 0 <= sn.id < s.n;
-    requires forall sn :: sn in s.nodes ==> s.n == |sn.symbols| == |sn.codeword|;
+    requires forall sn :: sn in s.nodes ==> sn.n == |sn.symbols| == |sn.codeword|;
     requires forall sn :: sn in s.nodes ==> sn.state == Phase2;
-    // requires forall sn :: sn in s.nodes ==> sn.codeword[sn.id] == sn.symbols[sn.id];
 {
     var syndromesForExchange := syndromesToExchange(s.nodes);
     lemma_Exchanged_Syndromes_Are_Extracted(s.nodes);
@@ -60,8 +53,8 @@ predicate serviceExchangeSyndromesAndDecide(s: Service, s': Service)
     && s' == s.(nodes := s'.nodes, state := SDecided)
     && |s'.nodes| == |s.nodes|
     && forall id :: 0 <= id < |s.nodes| ==> 
-    // assert s.nodes[id].codeword[id] == s.nodes[id].symbols[id];
-        nodeReceiveSyndromesAndDecide(s.nodes[id], s'.nodes[id], syndromesForExchange[id])
+        |syndromesForExchange[id]| == s.nodes[id].n
+        && nodeReceiveSyndromesAndDecide(s.nodes[id], s'.nodes[id], syndromesForExchange[id])
 }
 
 
@@ -86,9 +79,8 @@ predicate BCE(s:Service, s':Service, s'':Service)
 * symbolsToExchange(nodes)[i] represents the seq of symbols that nodes[i] receives in 
 * the exhange phase */
 function symbolsToExchange(nodes: seq<Node>) : seq<seq<symbol>> 
-    requires forall s :: s in nodes ==> s.n == 3*s.f + 1;
     requires forall s :: s in nodes ==> 0 <= s.id < s.n;
-    requires forall s :: s in nodes ==> nodeInit(s, s.f, s.n, s.id)
+    requires forall s :: s in nodes ==> |s.codeword| == s.n;
 {
     symbolsToExchangeHelper(nodes, 0)
 }
@@ -97,9 +89,8 @@ function symbolsToExchange(nodes: seq<Node>) : seq<seq<symbol>>
 function symbolsToExchangeHelper(nodes: seq<Node>, i: nat) : seq<seq<symbol>> 
     decreases |nodes| - i;
     requires 0 <= i <= |nodes|;
-    requires forall s :: s in nodes ==> s.n == 3*s.f + 1;
     requires forall s :: s in nodes ==> 0 <= s.id < s.n;
-    requires forall s :: s in nodes ==> nodeInit(s, s.f, s.n, s.id)
+    requires forall s :: s in nodes ==> |s.codeword| == s.n;
 {
     if i == |nodes| then [] else
     [extractSymbols(nodes)] + symbolsToExchangeHelper(nodes, i + 1)
@@ -109,9 +100,9 @@ function symbolsToExchangeHelper(nodes: seq<Node>, i: nat) : seq<seq<symbol>>
 * This is where Byzantine behavior can be modeled */
 function extractSymbols(nodes: seq<Node>) : seq<symbol> 
     decreases nodes;
-    requires forall s :: s in nodes ==> s.n == 3*s.f + 1;
+    // requires forall s :: s in nodes ==> s.n == 3*s.f + 1;
     requires forall s :: s in nodes ==> 0 <= s.id < s.n;
-    requires forall s :: s in nodes ==> nodeInit(s, s.f, s.n, s.id)
+    requires forall s :: s in nodes ==> |s.codeword| == s.n;
 {
     if |nodes| == 0 then [] else
     [nodes[0].codeword[nodes[0].id]] + extractSymbols(nodes[1..])
@@ -123,11 +114,7 @@ function extractSymbols(nodes: seq<Node>) : seq<symbol>
 * syndromeToExchange(nodes)[i] represents the seq of syndromes that nodes[i] receives in 
 * the exhange phase */
 function syndromesToExchange(nodes: seq<Node>) : seq<seq<syndrome>> 
-    requires forall s :: s in nodes ==> |nodes| == s.n == 3*s.f + 1;
-    requires forall s :: s in nodes ==> 0 <= s.id < s.n;
     requires forall s :: s in nodes ==> s.n == |s.symbols| == |s.codeword|;
-    requires forall s :: s in nodes ==> s.state == Phase2;
-    // requires forall s :: s in nodes ==> s.codeword[s.id] == s.symbols[s.id];
 {
     syndromesToExchangeHelper(nodes, 0)
 }
@@ -136,11 +123,7 @@ function syndromesToExchange(nodes: seq<Node>) : seq<seq<syndrome>>
 function syndromesToExchangeHelper(nodes: seq<Node>, i: nat) : seq<seq<syndrome>> 
     decreases |nodes| - i;
     requires 0 <= i <= |nodes|;
-    requires forall s :: s in nodes ==> s.n == 3*s.f + 1;
-    requires forall s :: s in nodes ==> 0 <= s.id < s.n;
     requires forall s :: s in nodes ==> s.n == |s.symbols| == |s.codeword|;
-    requires forall s :: s in nodes ==> s.state == Phase2;
-    // requires forall s :: s in nodes ==> s.codeword[s.id] == s.symbols[s.id];
 {
     if i == |nodes| then [] else
     [extractSyndromes(nodes)] + syndromesToExchangeHelper(nodes, i + 1)
@@ -150,16 +133,10 @@ function syndromesToExchangeHelper(nodes: seq<Node>, i: nat) : seq<seq<syndrome>
 * This is where Byzantine behavior can be modeled */
 function extractSyndromes(nodes: seq<Node>) : seq<syndrome> 
     decreases nodes;
-    requires forall s :: s in nodes ==> s.n == 3*s.f + 1;
-    requires forall s :: s in nodes ==> 0 <= s.id < s.n;
     requires forall s :: s in nodes ==> s.n == |s.symbols| == |s.codeword|;
-    requires forall s :: s in nodes ==> s.state == Phase2;
-    // requires forall s :: s in nodes ==> s.codeword[s.id] == s.symbols[s.id];
 {
     if |nodes| == 0 then [] else
-    // assert nodes[0].codeword[nodes[0].id] == nodes[0].symbols[nodes[0].id];
     [computeSyndrome(nodes[0])] + extractSyndromes(nodes[1..])
-    //[nodes[0].codeword[nodes[0].id]] + extractSyndromes(nodes[1..])
 }
 
 /****************************************************************************************/
@@ -171,9 +148,8 @@ function extractSyndromes(nodes: seq<Node>) : seq<syndrome>
 lemma {:induction i} lemma_Exchange_Generates_One_SymbolSeq_For_Each_Node(nodes: seq<Node>, i:nat) 
     decreases |nodes| - i;
     requires 0 <= i <= |nodes|;
-    requires forall s :: s in nodes ==> s.n == 3*s.f + 1;
     requires forall s :: s in nodes ==> 0 <= s.id < s.n;
-    requires forall s :: s in nodes ==> nodeInit(s, s.f, s.n, s.id)
+    requires forall s :: s in nodes ==> |s.codeword| == s.n;
     requires symbolsToExchangeHelper(nodes, 0) == symbolsToExchange(nodes);
     ensures |symbolsToExchangeHelper(nodes, i)| == |nodes[i..]|;
 {
@@ -187,21 +163,19 @@ lemma {:induction i} lemma_Exchange_Generates_One_SymbolSeq_For_Each_Node(nodes:
 
 /* Proof that for any nodes: seq<Node>, |extractSymbols(nodes)| == |nodes| */
 lemma {:induction nodes} lemma_Extract_Generates_One_Symbol_For_Each_Node(nodes: seq<Node>) 
-    requires forall s :: s in nodes ==> s.n == 3*s.f + 1;
     requires forall s :: s in nodes ==> 0 <= s.id < s.n;
-    requires forall s :: s in nodes ==> nodeInit(s, s.f, s.n, s.id)
+    requires forall s :: s in nodes ==> |s.codeword| == s.n;
     ensures |extractSymbols(nodes)| == |nodes|;
 {}
 
 
 /* Wrapper for lemma_Exchanged_Symbols_Are_Extracted_Helper */
 lemma {:induction nodes} lemma_Exchanged_Symbols_Are_Extracted(nodes: seq<Node>) 
-    requires forall s :: s in nodes ==> s.n == 3*s.f + 1;
     requires forall s :: s in nodes ==> 0 <= s.id < s.n;
-    requires forall s :: s in nodes ==> nodeInit(s, s.f, s.n, s.id);
+    requires forall s :: s in nodes ==> |s.codeword| == s.n;
     ensures |symbolsToExchange(nodes)| == |nodes|;
     ensures |extractSymbols(nodes)| == |nodes|;
-    ensures forall id :: 0 <= id < |symbolsToExchange(nodes)| ==> symbolsToExchange(nodes)[id] == extractSymbols(nodes);
+    ensures forall id :: 0 <= id < |symbolsToExchange(nodes)| ==> |symbolsToExchange(nodes)[id]| == |nodes|;
 {
     lemma_Exchanged_Symbols_Are_Extracted_Helper(nodes, 0);
 }
@@ -210,12 +184,11 @@ lemma {:induction nodes} lemma_Exchanged_Symbols_Are_Extracted(nodes: seq<Node>)
 lemma  {:induction i} lemma_Exchanged_Symbols_Are_Extracted_Helper(nodes: seq<Node>, i: nat) 
     decreases |nodes| - i;
     requires 0 <= i <= |nodes|;
-    requires forall s :: s in nodes ==> s.n == 3*s.f + 1;
     requires forall s :: s in nodes ==> 0 <= s.id < s.n;
-    requires forall s :: s in nodes ==> nodeInit(s, s.f, s.n, s.id);
+    requires forall s :: s in nodes ==> |s.codeword| == s.n;
     ensures |symbolsToExchange(nodes)| == |nodes|;
     ensures |extractSymbols(nodes)| == |nodes|;
-    ensures forall id :: 0 <= id < |symbolsToExchangeHelper(nodes, i)| ==> symbolsToExchangeHelper(nodes, i)[id] == extractSymbols(nodes);
+    ensures forall id :: 0 <= id < |symbolsToExchangeHelper(nodes, i)| ==> |symbolsToExchangeHelper(nodes, i)[id]| == |nodes|;
 {
     lemma_Extract_Generates_One_Symbol_For_Each_Node(nodes);
     lemma_Exchange_Generates_One_SymbolSeq_For_Each_Node(nodes, 0);
@@ -233,11 +206,7 @@ lemma  {:induction i} lemma_Exchanged_Symbols_Are_Extracted_Helper(nodes: seq<No
 lemma {:induction i} lemma_Exchange_Generates_One_SydromeSeq_For_Each_Node(nodes: seq<Node>, i:nat) 
     decreases |nodes| - i;
     requires 0 <= i <= |nodes|;
-    requires forall s :: s in nodes ==> |nodes| == s.n == 3*s.f + 1;
-    requires forall s :: s in nodes ==> 0 <= s.id < s.n;
     requires forall s :: s in nodes ==> s.n == |s.symbols| == |s.codeword|;
-    requires forall s :: s in nodes ==> s.state == Phase2;
-    // requires forall s :: s in nodes ==> s.codeword[s.id] == s.symbols[s.id];
     requires syndromesToExchangeHelper(nodes, 0) == syndromesToExchange(nodes);
     ensures |syndromesToExchangeHelper(nodes, i)| == |nodes[i..]|;
 {
@@ -252,11 +221,7 @@ lemma {:induction i} lemma_Exchange_Generates_One_SydromeSeq_For_Each_Node(nodes
 /* Proof that for any nodes: seq<Node>, |extractSyndromes(nodes)| == |nodes| */
 lemma {:induction nodes} lemma_Extract_Generates_One_Syndrome_For_Each_Node(nodes: seq<Node>) 
     decreases nodes;
-    requires forall s :: s in nodes ==> s.n == 3*s.f + 1;
-    requires forall s :: s in nodes ==> 0 <= s.id < s.n;
     requires forall s :: s in nodes ==> s.n == |s.symbols| == |s.codeword|;
-    requires forall s :: s in nodes ==> s.state == Phase2;
-    // requires forall s :: s in nodes ==> s.codeword[s.id] == s.symbols[s.id];
     ensures |extractSyndromes(nodes)| == |nodes|;
 {
     if |nodes| == 0 {
@@ -269,14 +234,10 @@ lemma {:induction nodes} lemma_Extract_Generates_One_Syndrome_For_Each_Node(node
 
 /* Wrapper for lemma_Exchanged_Syndromes_Are_Extracted_Helper */
 lemma {:induction nodes} lemma_Exchanged_Syndromes_Are_Extracted(nodes: seq<Node>) 
-    requires forall s :: s in nodes ==> |nodes| == s.n == 3*s.f + 1;
-    requires forall s :: s in nodes ==> 0 <= s.id < s.n;
     requires forall s :: s in nodes ==> s.n == |s.symbols| == |s.codeword|;
-    requires forall s :: s in nodes ==> s.state == Phase2;
-    // requires forall s :: s in nodes ==> s.codeword[s.id] == s.symbols[s.id];
     ensures |syndromesToExchange(nodes)| == |nodes|;
     ensures |extractSyndromes(nodes)| == |nodes|;
-    ensures forall id :: 0 <= id < |syndromesToExchange(nodes)| ==> syndromesToExchange(nodes)[id] == extractSyndromes(nodes);
+    ensures forall id :: 0 <= id < |syndromesToExchange(nodes)| ==> |syndromesToExchange(nodes)[id]| == |nodes|;
 {
     lemma_Exchanged_Syndromes_Are_Extracted_Helper(nodes, 0);
 }
@@ -285,11 +246,7 @@ lemma {:induction nodes} lemma_Exchanged_Syndromes_Are_Extracted(nodes: seq<Node
 lemma  {:induction i} lemma_Exchanged_Syndromes_Are_Extracted_Helper(nodes: seq<Node>, i: nat) 
     decreases |nodes| - i;
     requires 0 <= i <= |nodes|;
-    requires forall s :: s in nodes ==> |nodes| == s.n == 3*s.f + 1;
-    requires forall s :: s in nodes ==> 0 <= s.id < s.n;
     requires forall s :: s in nodes ==> s.n == |s.symbols| == |s.codeword|;
-    requires forall s :: s in nodes ==> s.state == Phase2;
-    // requires forall s :: s in nodes ==> s.codeword[s.id] == s.symbols[s.id];
     ensures |syndromesToExchange(nodes)| == |nodes|;
     ensures |extractSyndromes(nodes)| == |nodes|;
     ensures forall id :: 0 <= id < |syndromesToExchangeHelper(nodes, i)| ==> syndromesToExchangeHelper(nodes, i)[id] == extractSyndromes(nodes);

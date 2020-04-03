@@ -35,11 +35,8 @@ predicate nodeInit(s: Node, f:nat, n: nat, id: nat)
 
 /* Transition of a participant node from Phase1 to Phase 2 */
 predicate nodeReceiveSymbols(s: Node, s':Node, received_symbols: seq<nat>) 
-    requires s.n == 3*s.f + 1;
-    requires 0 <= s.id < s.n;
-    requires nodeInit(s, s.f, s.n, s.id);
-    requires |received_symbols| == |s.codeword|;  // received_symbols is of correct length
-    // requires received_symbols[s.id] == s.codeword[s.id]; // don't deceive myself
+    requires s.state == Phase1;
+    requires |received_symbols| == s.n;
 {
     s' == s.(
         symbols := received_symbols,
@@ -48,14 +45,11 @@ predicate nodeReceiveSymbols(s: Node, s':Node, received_symbols: seq<nat>)
 
 /* Transition of a participant node from Phase2 to Decided */
 predicate nodeReceiveSyndromesAndDecide(s: Node, s': Node, syndromes: seq<syndrome>)
-    requires s.n == 3*s.f + 1;
     requires s.state == Phase2;
-    requires 0 <= s.id < s.n;
-    requires s.n == |s.symbols| == |s.codeword|;
-    // requires s.codeword[s.id] == s.symbols[s.id];
-    requires s.n == |syndromes|
+    requires |syndromes| == s.n;
 {   
-    if decideOnCodeWord(s, syndromes) then (
+    0 <= s.id < s.n
+    && if decideOnCodeWord(s, syndromes) then (
         s' == s.(state := Decided,
             decision := Codeword
         )       
@@ -74,12 +68,8 @@ predicate nodeReceiveSyndromesAndDecide(s: Node, s': Node, syndromes: seq<syndro
 /* Evaluates to true iff Node s should decide on its own codeword based on the 
 * BCE protocol */
 predicate decideOnCodeWord(s: Node, syndromes: seq<syndrome>) 
-    requires s.n == 3*s.f + 1;
     requires s.state == Phase2;
-    requires 0 <= s.id < s.n;
-    requires s.n == |s.symbols| == |s.codeword|;
-    // requires s.codeword[s.id] == s.symbols[s.id];
-    requires s.n == |syndromes|
+    requires 0 <= s.id < |syndromes| ;
 {
     if countTrue(syndromes[s.id]) < s.n - s.f then (
         false
@@ -91,10 +81,7 @@ predicate decideOnCodeWord(s: Node, syndromes: seq<syndrome>)
 
 /* Maps Node s to its syndome */
 function computeSyndrome(s: Node) : syndrome
-    requires s.state == Phase2;
-    requires 0 <= s.id < s.n;
     requires s.n == |s.symbols| == |s.codeword|;
-    // requires s.codeword[s.id] == s.symbols[s.id];
 {
     computeSyndromeHelper(s.codeword, s.symbols)   
 }
