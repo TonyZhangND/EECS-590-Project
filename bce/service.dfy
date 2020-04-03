@@ -18,7 +18,14 @@ datatype Service = Service(
 /****************************************************************************************/   
 
 
-/* True iff Service state s is a valid initial state */
+/* True iff Service state s is a valid initial state
+
+To prove BCE, I don't have to start from a value and then encode/decode the value. 
+I can start immediately with a codeword. There are conditions to starting directly with a 
+codeword that bounds the initial state. 
+For any two correct processes, if their initial codewords differ, then they must 
+have at most k-1 (n-2f-1) symbols in common. Else they would have began with the same 
+value and started with the same codeword. */
 predicate serviceInit(s: Service)
 {
     && s.f > 0

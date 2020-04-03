@@ -4,7 +4,7 @@ type symbol = nat
 type syndrome = seq<bool>
 
 datatype NodeState = Phase1 | Phase2 | Decided
-datatype Decision = Codeword | Bottom
+datatype Decision = Undecided | Codeword | Bottom
 
 datatype Node = Node(
     f: nat,
@@ -13,7 +13,8 @@ datatype Node = Node(
     codeword: seq<symbol>,      // my codeword
     symbols: seq<symbol>,       // symbols[j] is the symbol sent by process j
     decision: Decision,         
-    state: NodeState            // current state of the node
+    state: NodeState,            // current state of the node
+    faulty: bool
 )
 
 
@@ -30,7 +31,9 @@ predicate nodeInit(s: Node, f:nat, n: nat, id: nat)
     && s.n == n
     && s.id == id
     && |s.codeword| == n
+    && s.decision == Undecided
     && s.state == Phase1
+    && !s.faulty
 }
 
 /* Transition of a participant node from Phase1 to Phase 2 */
