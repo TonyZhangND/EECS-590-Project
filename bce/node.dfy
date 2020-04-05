@@ -116,4 +116,36 @@ function countTrue(syn: syndrome) : int
         if syn[0] then 1 + countTrue(syn[1..]) else countTrue(syn[1..])
     )
 }
+
+
+/****************************************************************************************/
+/*                                       LEMMAS                                         */
+/****************************************************************************************/ 
+
+lemma lemma_Computed_Syndromes_Have_Length_n(s: Node, syn : syndrome)
+    requires s.n == |s.symbols| == |s.codeword|;
+    requires syn == computeSyndrome(s);
+    ensures |syn| == s.n;
+{
+    lemma_Computed_Syndromes_Have_Length_n_Helper(s.codeword, s.symbols, syn);
+}
+
+
+/* Prove that computeSyndromeHelper(codeword, symbols) returns a syndrome that has the 
+same length as |codeword| == |symbols| */
+lemma {:induction codeword, symbols} lemma_Computed_Syndromes_Have_Length_n_Helper(
+    codeword: seq<nat>, symbols: seq<nat>, syn: syndrome) 
+    decreases codeword, symbols, syn;
+    requires |codeword| == |symbols|;
+    requires syn == computeSyndromeHelper(codeword, symbols);
+    ensures |syn| == |codeword|;
+{
+    if |codeword| == 0 {
+        assert |syn| == 0;
+    } else {
+        lemma_Computed_Syndromes_Have_Length_n_Helper(codeword[1..], symbols[1..], syn[1..]);
+    }
+}
+
+
 }
