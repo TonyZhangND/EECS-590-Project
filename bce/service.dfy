@@ -230,10 +230,16 @@ lemma {:induction nodes} lemma_Extract_Generates_One_Syndrome_For_Each_Node(node
     decreases nodes;
     requires forall s :: s in nodes ==> s.n == |s.symbols| == |s.codeword|;
     ensures |extractSyndromes(nodes)| == |nodes|;
+    ensures forall i :: 0 <= i < |nodes| ==> |extractSyndromes(nodes)[i]| == nodes[i].n;
+    ensures forall i :: 0 <= i < |nodes| ==> extractSyndromes(nodes)[i] == computeSyndrome(nodes[i]);
 {
     if |nodes| == 0 {
         assert |extractSyndromes(nodes)| == 0;
     } else {
+        var node0 := nodes[0];
+        var syn0 := computeSyndrome(node0);
+        assert extractSyndromes(nodes)[0] == syn0;
+        lemma_Computed_Syndromes_Have_Length_n(node0, syn0);
         lemma_Extract_Generates_One_Syndrome_For_Each_Node(nodes[1..]);
     }
 }
@@ -244,7 +250,6 @@ lemma {:induction nodes} lemma_Exchanged_Syndromes_Are_Extracted(nodes: seq<Node
     requires forall s :: s in nodes ==> s.n == |s.symbols| == |s.codeword|;
     ensures |syndromesToExchange(nodes)| == |nodes|;
     ensures |extractSyndromes(nodes)| == |nodes|;
-    ensures forall id :: 0 <= id < |syndromesToExchange(nodes)| ==> |syndromesToExchange(nodes)[id]| == |nodes|;
 {
     lemma_Exchanged_Syndromes_Are_Extracted_Helper(nodes, 0);
 }
