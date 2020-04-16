@@ -182,7 +182,7 @@ lemma {:induction nodes} lemma_Exchanged_Symbols_Are_Extracted(nodes: seq<Node>)
     requires forall s :: s in nodes ==> |s.codeword| == s.n;
     ensures |symbolsToExchange(nodes)| == |nodes|;
     ensures |extractSymbols(nodes)| == |nodes|;
-    ensures forall id :: 0 <= id < |symbolsToExchange(nodes)| ==> |symbolsToExchange(nodes)[id]| == |nodes|;
+    ensures forall id :: 0 <= id < |symbolsToExchange(nodes)| ==> symbolsToExchange(nodes)[id] == extractSymbols(nodes);
 {
     lemma_Exchanged_Symbols_Are_Extracted_Helper(nodes, 0);
 }
@@ -195,7 +195,7 @@ lemma  {:induction i} lemma_Exchanged_Symbols_Are_Extracted_Helper(nodes: seq<No
     requires forall s :: s in nodes ==> |s.codeword| == s.n;
     ensures |symbolsToExchange(nodes)| == |nodes|;
     ensures |extractSymbols(nodes)| == |nodes|;
-    ensures forall id :: 0 <= id < |symbolsToExchangeHelper(nodes, i)| ==> |symbolsToExchangeHelper(nodes, i)[id]| == |nodes|;
+    ensures forall id :: 0 <= id < |symbolsToExchangeHelper(nodes, i)| ==> symbolsToExchangeHelper(nodes, i)[id] == extractSymbols(nodes);
 {
     lemma_Extract_Generates_One_Symbol_For_Each_Node(nodes);
     lemma_Exchange_Generates_One_SymbolSeq_For_Each_Node(nodes, 0);
@@ -281,4 +281,21 @@ lemma {:induction nodes} lemma_Extracted_Syndromes_Are_Computed(nodes: seq<Node>
     ensures |extractSyndromes(nodes)| == |nodes|
     ensures forall id :: 0 <= id < |extractSyndromes(nodes)| ==> extractSyndromes(nodes)[id] == computeSyndrome(nodes[id]);
 {}
+
+
+lemma {:induction nodes} lemma_Extracted_Symbols_Are_Correct(nodes: seq<Node>, symbols: seq<symbol>) 
+    requires forall s :: s in nodes ==> 0 <= s.id < s.n;
+    requires forall s :: s in nodes ==> |s.codeword| == s.n == |nodes|;    
+    requires symbols == extractSymbols(nodes);
+    requires |symbols| == |nodes|;
+    ensures forall i :: 0 <= i < |nodes| ==> (
+        !nodes[i].faulty ==> symbols[i] == nodes[i].codeword[i]
+    )
+{
+    forall i | 0 <= i < |nodes| && !nodes[i].faulty
+    ensures symbols[i] == nodes[i].codeword[i]
+    {
+        assert symbols[i] == nodes[i].codeword[i];
+    }
+}
 }
