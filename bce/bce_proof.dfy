@@ -43,20 +43,19 @@ lemma lemma_BCE_Termination(s:Service, s':Service, s'':Service)
 */
 lemma lemma_BCE_Validity(s:Service, s':Service, s'':Service) 
     requires BCE(s, s', s'');
-    ensures 
-        (forall node1, node2 :: 
+    requires forall node1, node2 :: 
             && node1 in s.nodes && node2 in s.nodes 
             && !node1.faulty && !node2.faulty ==> 
-            node1.codeword == node2.codeword)
-        ==>
-        (forall node :: 
+            node1.codeword == node2.codeword;
+    ensures 
+        forall node :: 
             node in s''.nodes && !node.faulty 
             ==> 
-            node.decision == Codeword);
+            node.decision == Codeword;
 {
     lemma_Service_Maintains_Invariants(s, s', s'');
-    lemma_BCE_Validity_Receive_n_f_Common_Symbols(s, s');
     assert forall node :: node in s'.nodes && !node.faulty ==> node.state == Phase2;
+    lemma_BCE_Validity_Receive_n_f_Common_Symbols(s, s');
     var syndromes := syndromesToExchange(s'.nodes);
     lemma_Exchanged_Syndromes_Are_Extracted(s'.nodes);
     lemma_BCE_Validity_Correct_Nodes_Decide_Codeword(s', syndromes);
@@ -66,11 +65,36 @@ lemma lemma_BCE_Validity(s:Service, s':Service, s'':Service)
 lemma lemma_BCE_Validity_Receive_n_f_Common_Symbols(s:Service, s':Service) 
     requires serviceInit(s);
     requires serviceExchangeSymbols(s, s');
+    requires node_invariants(s');
+    requires |s.nodes| == s.n;
+    requires |s'.nodes| == s'.n;
+    requires s.n == s'.n;
+    requires forall node :: node in s.nodes ==> 0 <= node.id < s.n;
+    requires forall node :: node in s.nodes ==> |node.codeword| == s.n;
+    //requires forall node :: node in s.nodes ==> |node.symbols| == s.n;
+    requires forall node :: node in s'.nodes ==> |node.codeword| == s'.n;
+    //requires forall node :: node in s'.nodes ==> |node.symbols| == s'.n;
+    requires forall  i :: 0 <= i < s.n ==> s.nodes[i].id == i;
+    requires forall  i :: 0 <= i < s'.n ==> s'.nodes[i].id == i;
+    //requires forall node :: node in s.nodes ==> node.n == |node.symbols| == |node.codeword|;
+    //requires forall node :: node in s'.nodes ==> node.n == |node.symbols| == |node.codeword|;
+    requires forall node1, node2 :: 
+            && node1 in s.nodes && node2 in s.nodes 
+            && !node1.faulty && !node2.faulty ==> 
+            node1.codeword == node2.codeword;
     ensures forall node :: 
         && node in s'.nodes && !node.faulty
         ==>
         node.symbols == node.codeword;
-{}
+{
+    var symbols := symbolsToExchange(s.nodes);
+    lemma_Extract_Generates_One_Symbol_For_Each_Node(s.nodes);
+    lemma_Exchanged_Symbols_Are_Extracted(s.nodes);
+    assert forall j :: 0 <= j < |symbols| ==> |symbols[j]| == |s.nodes|;
+    assert (forall j :: 0 <= j < |symbols| ==>
+        (forall  i :: 0 <= i < s'.n ==> 
+            nodeReceiveSymbols(s.nodes[i], s'.nodes[i], symbols[j])));
+}
 
 
 // TONY
