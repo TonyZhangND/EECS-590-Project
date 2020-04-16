@@ -250,6 +250,7 @@ lemma {:induction nodes} lemma_Exchanged_Syndromes_Are_Extracted(nodes: seq<Node
     requires forall s :: s in nodes ==> s.n == |s.symbols| == |s.codeword|;
     ensures |syndromesToExchange(nodes)| == |nodes|;
     ensures |extractSyndromes(nodes)| == |nodes|;
+    ensures forall id :: 0 <= id < |syndromesToExchange(nodes)| ==> syndromesToExchange(nodes)[id] == extractSyndromes(nodes);
 {
     lemma_Exchanged_Syndromes_Are_Extracted_Helper(nodes, 0);
 }
@@ -273,4 +274,11 @@ lemma  {:induction i} lemma_Exchanged_Syndromes_Are_Extracted_Helper(nodes: seq<
     }
 }
 
+
+/* Proof that extractSyndromes(nodes)[i] == computeSyndrome(nodes[i])  */
+lemma {:induction nodes} lemma_Extracted_Syndromes_Are_Computed(nodes: seq<Node>) 
+    requires forall s :: s in nodes ==> s.n == |s.symbols| == |s.codeword|;
+    ensures |extractSyndromes(nodes)| == |nodes|
+    ensures forall id :: 0 <= id < |extractSyndromes(nodes)| ==> extractSyndromes(nodes)[id] == computeSyndrome(nodes[id]);
+{}
 }
