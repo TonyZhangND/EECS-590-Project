@@ -76,6 +76,8 @@ lemma lemma_BCE_Validity_Receive_n_f_Common_Symbols(s:Service, s':Service)
 // TONY
 lemma lemma_BCE_Validity_Correct_Nodes_Decide_Codeword(s':Service, syndromes: seq<seq<syndrome>>) 
     requires node_invariants(s');
+    requires |s'.nodes| == s'.n;
+    requires forall  i :: 0 <= i < s'.n ==> s'.nodes[i].id == i
     requires forall node :: node in s'.nodes ==> node.n == |node.symbols| == |node.codeword|;
     requires syndromes == syndromesToExchange(s'.nodes);
     requires |syndromes| == s'.n;
@@ -94,7 +96,10 @@ lemma lemma_BCE_Validity_Correct_Nodes_Decide_Codeword(s':Service, syndromes: se
     ensures decideOnCodeWord(node, syndromes[node.id])
     {
         var syndromes_received := syndromes[node.id];
+        assert syndromes_received == extractSyndromes(s'.nodes);
+        lemma_Extracted_Syndromes_Are_Computed(s'.nodes);
         var my_syndrome := syndromes_received[node.id];
+        assert node == s'.nodes[node.id];
         assert my_syndrome == computeSyndrome(node);
         lemma_Computed_Syndromes_Have_Length_n(node, my_syndrome);
         lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_Good(node, my_syndrome);
@@ -119,6 +124,7 @@ lemma {:induction my_syndrome} lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_
 /*                                Service Invariants                                    */
 /****************************************************************************************/ 
 
+
 predicate node_invariants(s: Service)
 {
     forall node :: node in s.nodes && !node.faulty ==>
@@ -136,14 +142,37 @@ predicate service_invariants(s:Service, s':Service, s'':Service)
     ==>
     && serviceInit(s)
     && node_invariants(s) && node_invariants(s') && node_invariants(s'')
-    && s.f == s'.f == s''.f
-    && s.n == s'.n == s''.n
-    // num of nodes is constant
-    && |s.nodes| == |s'.nodes| == |s''.nodes| == s.n
+    && node_membership_invariant(s, s', s'')
     // correctness of each node is constant
+    && node_faultiness_invariant(s, s', s'')
+    // id of each node is constant
+    && node_identity_invariant(s, s', s'')
+}
+
+// num of nodes is constant
+predicate node_membership_invariant(s:Service, s':Service, s'':Service)
+{
+    && |s.nodes| == |s'.nodes| == |s''.nodes| == s.n
+    && s.n == s'.n == s''.n
+}
+
+// correctness of each node is constant
+predicate node_faultiness_invariant(s:Service, s':Service, s'':Service) 
+    requires node_membership_invariant(s, s', s'');
+{
+    && s.f == s'.f == s''.f
     && (forall  id :: 0 <= id < s.n ==> s.nodes[id].faulty == s'.nodes[id].faulty == s''.nodes[id].faulty)
-    // id of each correct node is constant
-    && (forall  i :: 0 <= i < s.n && !s.nodes[i].faulty ==> s.nodes[i].id == i)
+}
+
+// identity of each node is constant
+predicate node_identity_invariant(s:Service, s':Service, s'':Service)
+    requires node_membership_invariant(s, s', s'');
+{
+    forall  i :: 0 <= i < s.n 
+    ==> 
+    && s.nodes[i].id == i
+    && s'.nodes[i].id == i
+    && s''.nodes[i].id == i
 }
 
 lemma lemma_Service_Maintains_Invariants(s:Service, s':Service, s'':Service) 
