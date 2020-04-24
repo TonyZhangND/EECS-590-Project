@@ -1,9 +1,11 @@
 include "service.dfy"
 include "node.dfy"
+include "service_invariants.dfy"
 
 module BCE_Proof {
 import opened BCE_Protocol_Service
 import opened BCE_Protocol_Node
+import opened Service_Invariants
 
 
 /****************************************************************************************/
@@ -149,65 +151,4 @@ lemma {:induction i} lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_Good_Helpe
         assert countTrue(my_syndrome[0..i]) == 1 + countTrue(my_syndrome[0..i-1]);
     }
 }
-
-
-/****************************************************************************************/
-/*                                Service Invariants                                    */
-/****************************************************************************************/ 
-
-
-predicate node_invariants(s: Service)
-{
-    forall node :: node in s.nodes && !node.faulty ==>
-    && node.n == node.f * 3 + 1
-    && 0 <= node.id < node.n
-    && 0 <= node.id < node.n
-    && |node.codeword| == node.n
-    && node.n == s.n
-    && node.f == s.f
-}
-
-predicate service_invariants(s:Service, s':Service, s'':Service)
-{
-    BCE(s, s', s'')
-    ==>
-    && serviceInit(s)
-    && node_invariants(s) && node_invariants(s') && node_invariants(s'')
-    && node_membership_invariant(s, s', s'')
-    // correctness of each node is constant
-    && node_faultiness_invariant(s, s', s'')
-    // id of each node is constant
-    && node_identity_invariant(s, s', s'')
-}
-
-// num of nodes is constant
-predicate node_membership_invariant(s:Service, s':Service, s'':Service)
-{
-    && |s.nodes| == |s'.nodes| == |s''.nodes| == s.n
-    && s.n == s'.n == s''.n
-}
-
-// correctness of each node is constant
-predicate node_faultiness_invariant(s:Service, s':Service, s'':Service) 
-    requires node_membership_invariant(s, s', s'');
-{
-    && s.f == s'.f == s''.f
-    && (forall  id :: 0 <= id < s.n ==> s.nodes[id].faulty == s'.nodes[id].faulty == s''.nodes[id].faulty)
-}
-
-// identity of each node is constant
-predicate node_identity_invariant(s:Service, s':Service, s'':Service)
-    requires node_membership_invariant(s, s', s'');
-{
-    forall  i :: 0 <= i < s.n 
-    ==> 
-    && s.nodes[i].id == i
-    && s'.nodes[i].id == i
-    && s''.nodes[i].id == i
-}
-
-lemma lemma_Service_Maintains_Invariants(s:Service, s':Service, s'':Service) 
-    requires BCE(s, s', s'');
-    ensures service_invariants(s, s', s'');
-{}
 }
