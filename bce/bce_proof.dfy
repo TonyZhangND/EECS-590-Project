@@ -84,7 +84,7 @@ lemma lemma_BCE_Validity_Correct_Nodes_Decide_Codeword(s':Service, syndromes: se
     requires forall node :: 
         node in s'.nodes && !node.faulty
         ==>
-        && node.symbols == node.codeword
+        && node.symbols == node.codeword  //by "everyone is correct" assumption
         && node.state == Phase2
         && 0 <= node.id < s'.n
         && 0 <= node.id < |syndromes[node.id]|;
@@ -114,9 +114,40 @@ lemma {:induction my_syndrome} lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_
     requires node.state == Phase2;
     requires |my_syndrome| == node.n;
     requires node.n == 3 * node.f + 1
+    requires node.n == |node.symbols| == |node.codeword|; 
+    requires node.symbols == node.codeword; //by "everyone is correct" assumption
+    requires my_syndrome == computeSyndrome(node);
     ensures countTrue(my_syndrome) >= node.n - node.f;
 {
+    assert |computeSyndrome(node)| == node.n;
+    assert my_syndrome[0..node.n] == my_syndrome;
+    lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_Good_Helper(node, my_syndrome, node.n);
+}
 
+
+lemma {:induction i} lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_Good_Helper(node: Node, my_syndrome: syndrome, i: int) 
+    decreases i;
+    requires !node.faulty;
+    requires node.state == Phase2;
+    requires |my_syndrome| == node.n;
+    requires node.n == 3 * node.f + 1
+    requires node.n == |node.symbols| == |node.codeword|; 
+    requires node.symbols == node.codeword; //by "everyone is correct" assumption
+    requires my_syndrome == computeSyndrome(node);
+    requires 0 <= i <= node.n;
+    ensures countTrue(my_syndrome[0..i]) >= i - node.f;
+{
+    if i == 0 {
+        assert my_syndrome[0..i] == [];
+        assert countTrue(my_syndrome[0..i]) == 0;
+    } else {
+        lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_Good_Helper(node, my_syndrome, i-1);
+        assert countTrue(my_syndrome[0..i-1]) >= i-1 - node.f;
+        assert node.symbols[i-1] == node.codeword[i-1];
+        lemma_Computed_Syndromes_Is_Correct(node, my_syndrome);
+        assert my_syndrome[i-1] == true;
+        assert countTrue(my_syndrome[0..i]) == 1 + countTrue(my_syndrome[0..i-1]);
+    }
 }
 
 
