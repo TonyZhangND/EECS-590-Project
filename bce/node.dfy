@@ -131,6 +131,15 @@ lemma lemma_Computed_Syndromes_Have_Length_n(s: Node, syn : syndrome)
 }
 
 
+lemma lemma_Computed_Syndromes_Is_Correct(s: Node, syn : syndrome)
+    requires s.n == |s.symbols| == |s.codeword| == |syn|;
+    requires syn == computeSyndrome(s);
+    ensures forall i :: 0<= i < s.n ==> syn[i] == (s.symbols[i] == s.codeword[i]);
+{
+    // TODO
+}
+
+
 /* Prove that computeSyndromeHelper(codeword, symbols) returns a syndrome that has the 
 same length as |codeword| == |symbols| */
 lemma {:induction codeword, symbols} lemma_Computed_Syndromes_Have_Length_n_Helper(
