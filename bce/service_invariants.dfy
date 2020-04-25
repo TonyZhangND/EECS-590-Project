@@ -5,6 +5,27 @@ module Service_Invariants {
 import opened BCE_Protocol_Service
 import opened BCE_Protocol_Node
 
+
+/****************************************************************************************/
+/*                              AUXILIARY FUNCTIONS                                     */
+/****************************************************************************************/ 
+
+
+/* Maps nodes to the number of faulty nodes in the seq */
+function countFaulty(nodes: seq<Node>) : int
+    decreases nodes;
+{
+    if |nodes| == 0 then 0 else (
+        if nodes[|nodes|-1].faulty then 1 + countFaulty(nodes[..|nodes|-1]) else countFaulty(nodes[..|nodes|-1])
+    )
+}
+
+
+/****************************************************************************************/
+/*                                     INVARIANTS                                       */
+/****************************************************************************************/ 
+
+
 predicate node_invariants(s: Service)
 {
     forall node :: node in s.nodes ==>
@@ -44,6 +65,9 @@ predicate node_faultiness_invariant(s:Service, s':Service, s'':Service)
     && s.f == s'.f == s''.f
     && (forall id :: 0 <= id < s.n ==> s.nodes[id].faulty == (id < s.f))
     && (forall  id :: 0 <= id < s.n ==> s.nodes[id].faulty == s'.nodes[id].faulty == s''.nodes[id].faulty)
+    && countFaulty(s.nodes) <= s.f
+    && countFaulty(s'.nodes) <= s'.f
+    && countFaulty(s''.nodes) <= s''.f
 }
 
 // Identity of each node is constant
@@ -57,8 +81,19 @@ predicate node_identity_invariant(s:Service, s':Service, s'':Service)
     && s''.nodes[i].id == i
 }
 
+
+/****************************************************************************************/
+/*                                       LEMMAS                                         */
+/****************************************************************************************/ 
+
 lemma lemma_Service_Maintains_Invariants(s:Service, s':Service, s'':Service) 
     requires BCE(s, s', s'');
     ensures service_invariants(s, s', s'');
-{}
+{
+
+    // TODO
+    assert countFaulty(s.nodes) <= s.f;
+    assert countFaulty(s'.nodes) <= s'.f;
+    assert countFaulty(s''.nodes) <= s''.f;
+}
 }
