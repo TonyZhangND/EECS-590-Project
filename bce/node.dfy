@@ -103,9 +103,9 @@ function countGoodSyndromes(syndromes_seq: seq<syndrome>, thresh: int) : int
     decreases syndromes_seq
 {
     if |syndromes_seq| == 0 then 0 else
-    var x := countTrue(syndromes_seq[0]);
-    if x >= thresh then 1 + countGoodSyndromes(syndromes_seq[1..], thresh) else 
-    countGoodSyndromes(syndromes_seq[1..], thresh)
+    var x := countTrue(syndromes_seq[|syndromes_seq|-1]);
+    if x >= thresh then 1 + countGoodSyndromes(syndromes_seq[..|syndromes_seq|-1], thresh) else 
+    countGoodSyndromes(syndromes_seq[..|syndromes_seq|-1], thresh)
 }
 
 /* Maps syn to the number of True bits in syn */
