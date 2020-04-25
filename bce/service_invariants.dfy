@@ -7,13 +7,14 @@ import opened BCE_Protocol_Node
 
 predicate node_invariants(s: Service)
 {
-    forall node :: node in s.nodes && !node.faulty ==>
+    forall node :: node in s.nodes ==>
     && node.n == node.f * 3 + 1
     && 0 <= node.id < node.n
     && 0 <= node.id < node.n
-    && |node.codeword| == node.n
     && node.n == s.n
     && node.f == s.f
+    && |node.codeword| == node.n
+    && node.faulty == (node.id < node.f)
 }
 
 predicate service_invariants(s:Service, s':Service, s'':Service)
@@ -29,22 +30,23 @@ predicate service_invariants(s:Service, s':Service, s'':Service)
     && node_identity_invariant(s, s', s'')
 }
 
-// num of nodes is constant
+// Number of nodes is constant
 predicate node_membership_invariant(s:Service, s':Service, s'':Service)
 {
     && |s.nodes| == |s'.nodes| == |s''.nodes| == s.n
     && s.n == s'.n == s''.n
 }
 
-// correctness of each node is constant
+// Correctness of each node is constant and the first f nodes are faulty
 predicate node_faultiness_invariant(s:Service, s':Service, s'':Service) 
     requires node_membership_invariant(s, s', s'');
 {
     && s.f == s'.f == s''.f
+    && (forall id :: 0 <= id < s.n ==> s.nodes[id].faulty == (id < s.f))
     && (forall  id :: 0 <= id < s.n ==> s.nodes[id].faulty == s'.nodes[id].faulty == s''.nodes[id].faulty)
 }
 
-// identity of each node is constant
+// Identity of each node is constant
 predicate node_identity_invariant(s:Service, s':Service, s'':Service)
     requires node_membership_invariant(s, s', s'');
 {
@@ -59,6 +61,4 @@ lemma lemma_Service_Maintains_Invariants(s:Service, s':Service, s'':Service)
     requires BCE(s, s', s'');
     ensures service_invariants(s, s', s'');
 {}
-
-
 }

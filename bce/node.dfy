@@ -33,7 +33,7 @@ predicate nodeInit(s: Node, f:nat, n: nat, id: nat)
     && |s.codeword| == n
     && s.decision == Undecided
     && s.state == Phase1
-    && !s.faulty
+    && s.faulty == (id < f)
 }
 
 /* Transition of a participant node from Phase1 to Phase 2 */
