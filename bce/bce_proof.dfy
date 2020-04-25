@@ -109,6 +109,7 @@ lemma lemma_BCE_Validity_Correct_Nodes_Decide_Codeword(s':Service, syndromes: se
     requires forall node :: node in s'.nodes ==> node.n == |node.symbols| == |node.codeword|;
     requires syndromes == syndromesToExchange(s'.nodes);
     requires |syndromes| == s'.n;
+    requires countFaulty(s'.nodes) <= s'.f;
     requires forall node :: 
         node in s'.nodes && !node.faulty
         ==>
@@ -166,36 +167,32 @@ lemma lemma_BCE_Validity_Correct_Nodes_Send_Good_Syndrome(s':Service, node: Node
 {}
 
 
-// TODO
+/* Prove that if node is correct, then countGoodSyndromes will give a count >= n-f */
 lemma {:induction syndromes_received} lemma_BCE_Validity_CountGoodSyndromes_Succeeds(s':Service, node: Node, syndromes_received: seq<syndrome>) 
     requires node_invariants(s');
     requires |s'.nodes| == s'.n;
     requires forall  i :: 0 <= i < s'.n ==> s'.nodes[i].id == i
     requires node in s'.nodes;
     requires forall n :: n in s'.nodes ==> n.n == |n.symbols| == |n.codeword|;
-    // requires forall node :: 
-    //     node in s'.nodes && !node.faulty
-    //     ==>
-    //     && node.symbols == node.codeword  //by "everyone is behaving" temporary assumption
-    //     && node.state == Phase2
-    //     && 0 <= node.id < s'.n
     requires |syndromesToExchange(s'.nodes)| == s'.n;
     requires syndromes_received == syndromesToExchange(s'.nodes)[node.id];
     requires |syndromes_received| == s'.n;
+    requires countFaulty(s'.nodes) <= s'.f;
     requires forall i :: 0 <= i < s'.n ==> syndromes_received[i] == computeSyndrome(s'.nodes[i]);
     ensures countGoodSyndromes(syndromes_received, node.n-node.f) >= s'.n - s'.f;
 {
     lemma_BCE_Validity_Correct_Nodes_Send_Good_Syndrome(s', node, syndromes_received);
+    assert s'.nodes[..s'.n] == s'.nodes;
+    assert countFaulty(s'.nodes[..s'.n]) <= s'.f;
     lemma_BCE_Validity_CountGoodSyndromes_Succeeds_Helper(s', node, syndromes_received, s'.n, s'.f);
+    assert syndromes_received[..s'.n] == syndromes_received;
 }
 
 
-// TODO
 lemma {:induction i, f} lemma_BCE_Validity_CountGoodSyndromes_Succeeds_Helper(s':Service, node: Node, syndromes_received: seq<syndrome>, i: int, f: int) 
     decreases i, f;
     requires node_invariants(s');
-    requires 0 <= i <= s'.n;
-    requires 0 <= f <= s'.f;
+    // Boilerplate stuff
     requires |s'.nodes| == s'.n;
     requires forall  id :: 0 <= id < s'.n ==> s'.nodes[id].id == id
     requires node in s'.nodes;
@@ -204,17 +201,27 @@ lemma {:induction i, f} lemma_BCE_Validity_CountGoodSyndromes_Succeeds_Helper(s'
     requires syndromes_received == syndromesToExchange(s'.nodes)[node.id];
     requires |syndromes_received| == s'.n;
     requires forall id :: 0 <= id < s'.n ==> syndromes_received[id] == computeSyndrome(s'.nodes[id]);
+    // Facts needed for this proof
     requires forall id :: 0 <= id < s'.n ==> 
         (!s'.nodes[id].faulty ==> countTrue(computeSyndrome(s'.nodes[id])) >= s'.n - s'.f)
+    requires 0 <= i <= s'.n;
+    requires 0 <= f <= s'.f;
+    requires countFaulty(s'.nodes[..i]) <= f;
     ensures countGoodSyndromes(syndromes_received[..i], node.n-node.f) >= i - f;
 {
     var thresh := s'.n - s'.f;
     if i == 0 {
         assert countGoodSyndromes(syndromes_received[..i], thresh) == 0;
-    } else {
-        // Check the next syndrome (ith) for goodness
+    } else { // Check the next syndrome (ith) for goodness
         if !s'.nodes[i-1].faulty {
+            // If node is correct:
+            // Check countFaulty
+            lemma_Count_Faulty_Increment_Property(s'.nodes, i);
+
+            // Invoke induction hypothesis
             lemma_BCE_Validity_CountGoodSyndromes_Succeeds_Helper(s', node, syndromes_received, i-1, f);
+
+            // Check countGoodSyndromes
             var check_prefix := syndromes_received[..i];
             var x := countTrue(check_prefix[|check_prefix|-1]);
             assert x >= thresh;
@@ -222,8 +229,16 @@ lemma {:induction i, f} lemma_BCE_Validity_CountGoodSyndromes_Succeeds_Helper(s'
                 1 + countGoodSyndromes(check_prefix[..|check_prefix|-1], thresh);
             assert check_prefix[..|check_prefix|-1] == syndromes_received[..i-1];
         } else {
+            // If node is faulty:
             if f > 0 {
+                // Check countFaulty
+                lemma_Count_Faulty_Increment_Property(s'.nodes, i);
+                assert countFaulty(s'.nodes[..i-1]) == countFaulty(s'.nodes[..i]) - 1;
+
+                // Invoke induction hypothesis
                 lemma_BCE_Validity_CountGoodSyndromes_Succeeds_Helper(s', node, syndromes_received, i-1, f-1);
+
+                // Check countGoodSyndromes
                 var check_prefix := syndromes_received[..i];
                 var x := countTrue(check_prefix[|check_prefix|-1]);
                 if x >= thresh {
@@ -235,15 +250,24 @@ lemma {:induction i, f} lemma_BCE_Validity_CountGoodSyndromes_Succeeds_Helper(s'
                     assert check_prefix[..|check_prefix|-1] == syndromes_received[..i-1];
                 }
             } else {
-                // Every node seen must be correct from this point
-                lemma_BCE_Validity_CountGoodSyndromes_Succeeds_Helper(s', node, syndromes_received, i-1, f);
-                var check_prefix := syndromes_received[..i];
-                assert !s'.nodes[i-1].faulty;
-                var x := countTrue(check_prefix[|check_prefix|-1]);
-                assert x >= thresh;
-                assert countGoodSyndromes(check_prefix, thresh) ==
-                    1 + countGoodSyndromes(check_prefix[..|check_prefix|-1], thresh);
-                assert check_prefix[..|check_prefix|-1] == syndromes_received[..i-1];
+                // f=0, so every node seen must be correct from this point. 
+                if !s'.nodes[i-1].faulty {
+                    lemma_BCE_Validity_CountGoodSyndromes_Succeeds_Helper(s', node, syndromes_received, i-1, f);
+                    var check_prefix := syndromes_received[..i];
+                    var x := countTrue(check_prefix[|check_prefix|-1]);
+                    assert x >= thresh;
+                    assert countGoodSyndromes(check_prefix, thresh) ==
+                        1 + countGoodSyndromes(check_prefix[..|check_prefix|-1], thresh);
+                    assert check_prefix[..|check_prefix|-1] == syndromes_received[..i-1];
+                } else {
+                    // Proof by contradiction that s'.nodes[i-1] cannot be faulty
+                    assert f == 0;
+                    assert countFaulty(s'.nodes[..i]) <= f;
+                    lemma_Count_Faulty_Increment_Property(s'.nodes, i);
+                    assert countFaulty(s'.nodes[..i-1]) < 0;
+                    lemma_Count_Faulty_Non_Negative_Property(s'.nodes[..i-1]);
+                    assert false; // Contradiction!
+                }
             }
         }
     }
