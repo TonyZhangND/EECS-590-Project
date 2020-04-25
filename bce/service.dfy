@@ -283,19 +283,20 @@ lemma {:induction nodes} lemma_Extracted_Syndromes_Are_Computed(nodes: seq<Node>
 {}
 
 
-lemma {:induction nodes} lemma_Extracted_Symbols_Are_Correct(nodes: seq<Node>, symbols: seq<symbol>) 
-    requires forall s :: s in nodes ==> 0 <= s.id < s.n;
-    requires forall s :: s in nodes ==> |s.codeword| == s.n == |nodes|;    
-    requires symbols == extractSymbols(nodes);
-    requires |symbols| == |nodes|;
-    ensures forall i :: 0 <= i < |nodes| ==> (
-        !nodes[i].faulty ==> symbols[i] == nodes[i].codeword[i]
-    )
-{
-    forall i | 0 <= i < |nodes| && !nodes[i].faulty
-    ensures symbols[i] == nodes[i].codeword[i]
-    {
-        assert symbols[i] == nodes[i].codeword[i];
-    }
-}
+// TODO
+// lemma {:induction nodes} lemma_Extracted_Symbols_Are_Correct(nodes: seq<Node>, symbols: seq<symbol>) 
+//     requires forall s :: s in nodes ==> 0 <= s.id < s.n;
+//     requires forall s :: s in nodes ==> |s.codeword| == s.n == |nodes|;    
+//     requires symbols == extractSymbols(nodes);
+//     requires |symbols| == |nodes|;
+//     ensures forall i :: 0 <= i < |nodes| ==> (
+//         !nodes[i].faulty ==> symbols[i] == nodes[i].codeword[i]
+//     )
+// {
+//     forall i | 0 <= i < |nodes| && !nodes[i].faulty
+//     ensures symbols[i] == nodes[i].codeword[i]
+//     {
+//         assert symbols[i] == nodes[i].codeword[i];
+//     }
+// }
 }
