@@ -94,7 +94,7 @@ function computeSyndromeHelper(codeword: seq<nat>, symbols: seq<nat>) : syndrome
     requires |codeword| == |symbols|
 {
     if |codeword| == 0 then []
-    else [codeword[0] == symbols[0]] + computeSyndromeHelper(codeword[1..], symbols[1..])
+    else computeSyndromeHelper(codeword[..|codeword|-1], symbols[..|symbols|-1]) + [codeword[|codeword|-1] == symbols[|symbols|-1]]
 }
 
 /* Maps syndromes_seq to the number of syndromes in syndromes_seq that 
@@ -122,7 +122,7 @@ function countTrue(syn: syndrome) : int
 /*                                       LEMMAS                                         */
 /****************************************************************************************/ 
 
-lemma lemma_Computed_Syndromes_Have_Length_n(s: Node, syn : syndrome)
+lemma lemma_Computed_Syndromes_Have_Length_n(s: Node, syn: syndrome)
     requires s.n == |s.symbols| == |s.codeword|;
     requires syn == computeSyndrome(s);
     ensures |syn| == s.n;
@@ -131,17 +131,66 @@ lemma lemma_Computed_Syndromes_Have_Length_n(s: Node, syn : syndrome)
 }
 
 
-lemma lemma_Computed_Syndromes_Is_Correct(s: Node, syn : syndrome)
+/* Prove that the result of computeSyndrome(s) is the result of comparing the
+* codeword with the symbols received */
+lemma lemma_Computed_Syndromes_Is_Correct(s: Node, syn: syndrome)
     requires s.n == |s.symbols| == |s.codeword| == |syn|;
     requires syn == computeSyndrome(s);
     ensures forall i :: 0<= i < s.n ==> syn[i] == (s.symbols[i] == s.codeword[i]);
 {
-    // TODO
+    lemma_Computed_Syndromes_Is_Correct_Helper(s, syn, s.n);
+}
+
+lemma {:induction i} lemma_Computed_Syndromes_Is_Correct_Helper(s: Node, syn: syndrome, i: int)
+    decreases i;
+    requires s.n == |s.symbols| == |s.codeword| == |syn|;
+    requires syn == computeSyndromeHelper(s.codeword, s.symbols);
+    requires 0 <= i <= s.n;
+    ensures forall k :: 0 <= k < i ==> syn[k] == (s.symbols[k] == s.codeword[k]);
+{
+    if i == 0 {
+        assert computeSyndromeHelper(s.codeword[0..i], s.symbols[0..i]) == [];
+    } else {
+        lemma_Computed_Syndromes_Is_Correct_Helper(s, syn, i-1);
+        var codeword_prefix := s.codeword[0..i];
+        var symbols_prefix := s.symbols[0..i];
+        lemma_Computed_Syndromes_Construction(s, syn, i);
+    }
+}
+
+
+/* Prove that 
+* computeSyndromeHelper(s.codeword, s.symbols)[..i] == 
+* computeSyndromeHelper(s.codeword[..i], s.symbols[..i]) */
+lemma {:induction i} lemma_Computed_Syndromes_Construction(s: Node, syn: syndrome, i: int) 
+    decreases s.n - i;
+    requires s.n == |s.symbols| == |s.codeword| == |syn|;
+    requires syn == computeSyndromeHelper(s.codeword, s.symbols);
+    requires 0 <= i <= s.n;
+    ensures syn[..i] == computeSyndromeHelper(s.codeword[..i], s.symbols[..i]);
+{
+    if i == s.n {
+        assert syn[..i] == syn;
+        assert s.codeword[..i] == s.codeword;
+        assert s.symbols[..i] ==  s.symbols;
+        assert syn[..i] == computeSyndromeHelper(s.codeword[..i], s.symbols[..i]);
+    } else {
+        lemma_Computed_Syndromes_Construction(s, syn, i + 1);
+        var codeword_prefix := s.codeword[..i+1];
+        var symbols_prefix := s.symbols[..i+1];
+        var ith_syn := codeword_prefix[|codeword_prefix|-1] == symbols_prefix[|symbols_prefix|-1];
+        assert computeSyndromeHelper(codeword_prefix, symbols_prefix) ==
+            computeSyndromeHelper(codeword_prefix[..|codeword_prefix|-1], symbols_prefix[..|symbols_prefix|-1])
+            + [ith_syn];
+        assert syn[..i] ==  computeSyndromeHelper(codeword_prefix[..|codeword_prefix|-1], symbols_prefix[..|symbols_prefix|-1]);
+        assert codeword_prefix[..|codeword_prefix|-1] == s.codeword[..i];
+        assert symbols_prefix[..|symbols_prefix|-1] == s.symbols[..i];
+    }
 }
 
 
 /* Prove that computeSyndromeHelper(codeword, symbols) returns a syndrome that has the 
-same length as |codeword| == |symbols| */
+* same length as |codeword| == |symbols| */
 lemma {:induction codeword, symbols} lemma_Computed_Syndromes_Have_Length_n_Helper(
     codeword: seq<nat>, symbols: seq<nat>, syn: syndrome) 
     decreases codeword, symbols, syn;
@@ -152,7 +201,7 @@ lemma {:induction codeword, symbols} lemma_Computed_Syndromes_Have_Length_n_Help
     if |codeword| == 0 {
         assert |syn| == 0;
     } else {
-        lemma_Computed_Syndromes_Have_Length_n_Helper(codeword[1..], symbols[1..], syn[1..]);
+        lemma_Computed_Syndromes_Have_Length_n_Helper(codeword[..|codeword|-1], symbols[..|symbols|-1], syn[..|syn|-1]);
     }
 }
 
