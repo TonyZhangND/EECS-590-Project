@@ -20,6 +20,39 @@ function countFaulty(nodes: seq<Node>) : int
     )
 }
 
+lemma lemma_Count_Faulty_Increment_Property(nodes: seq<Node>, i: int) 
+    decreases nodes;
+    requires 0 < i <= |nodes|;
+    ensures !nodes[i-1].faulty ==> countFaulty(nodes[..i]) == countFaulty(nodes[..i-1]);
+    ensures nodes[i-1].faulty ==> countFaulty(nodes[..i-1]) == countFaulty(nodes[..i]) - 1;
+{
+    var nodes_prefix := nodes[..i];
+    if !nodes[i-1].faulty {
+        assert countFaulty(nodes_prefix) == countFaulty(nodes_prefix[..|nodes_prefix|-1]);
+        assert nodes_prefix[..|nodes_prefix|-1] == nodes[..i-1];
+    } else {
+        assert countFaulty(nodes_prefix) == countFaulty(nodes_prefix[..|nodes_prefix|-1]) + 1;
+        assert nodes_prefix[..|nodes_prefix|-1] == nodes[..i-1];
+    }
+}
+
+/* Proof that countFaulty(nodes) cannot give a negative number */
+lemma {:induction nodes} lemma_Count_Faulty_Non_Negative_Property (nodes: seq<Node>) 
+    ensures countFaulty(nodes) >= 0;
+{}
+
+/* Proof that countFaulty(nodes) exceed length of list */
+lemma {:induction nodes} lemma_Count_Faulty_Upper_Bound_Property (nodes: seq<Node>) 
+    ensures countFaulty(nodes) <= |nodes|;
+{}
+
+/* Proof that countFaulty(nodes) only depends on the node.faulty field of each node */
+lemma {:induction nodes1, nodes2} lemma_Count_Faulty_Identity_Property (nodes1: seq<Node>, nodes2: seq<Node>) 
+    requires |nodes1| == |nodes2|;
+    requires forall i :: 0 <= i < |nodes1| ==> nodes1[i].faulty == nodes2[i].faulty;
+    ensures countFaulty(nodes1) == countFaulty(nodes2);
+{}
+
 
 /****************************************************************************************/
 /*                                     INVARIANTS                                       */
@@ -47,6 +80,7 @@ predicate service_invariants(s:Service, s':Service, s'':Service)
     && node_membership_invariant(s, s', s'')
     // correctness of each node is constant
     && node_faultiness_invariant(s, s', s'')
+    && node_faultiness_count_invariant(s, s', s'')
     // id of each node is constant
     && node_identity_invariant(s, s', s'')
 }
@@ -65,6 +99,12 @@ predicate node_faultiness_invariant(s:Service, s':Service, s'':Service)
     && s.f == s'.f == s''.f
     && (forall id :: 0 <= id < s.n ==> s.nodes[id].faulty == (id < s.f))
     && (forall  id :: 0 <= id < s.n ==> s.nodes[id].faulty == s'.nodes[id].faulty == s''.nodes[id].faulty)
+}
+
+// At most f nodes are faulty at any time
+predicate node_faultiness_count_invariant(s:Service, s':Service, s'':Service) 
+    requires node_membership_invariant(s, s', s'');
+{
     && countFaulty(s.nodes) <= s.f
     && countFaulty(s'.nodes) <= s'.f
     && countFaulty(s''.nodes) <= s''.f
@@ -83,17 +123,59 @@ predicate node_identity_invariant(s:Service, s':Service, s'':Service)
 
 
 /****************************************************************************************/
-/*                                       LEMMAS                                         */
+/*                                       PROOFS                                         */
 /****************************************************************************************/ 
 
 lemma lemma_Service_Maintains_Invariants(s:Service, s':Service, s'':Service) 
     requires BCE(s, s', s'');
     ensures service_invariants(s, s', s'');
 {
-
-    // TODO
-    assert countFaulty(s.nodes) <= s.f;
-    assert countFaulty(s'.nodes) <= s'.f;
-    assert countFaulty(s''.nodes) <= s''.f;
+    lemma_Node_Faultiness_Count_Invariant(s);
+    assert node_faultiness_invariant(s, s', s'');
+    lemma_Count_Faulty_Identity_Property(s.nodes,s'.nodes);
+    lemma_Count_Faulty_Identity_Property(s.nodes,s''.nodes);
 }
+
+/* Prove that in the initial state, countFaulty <= f */
+lemma lemma_Node_Faultiness_Count_Invariant(s:Service)
+    requires serviceInit(s);
+    ensures countFaulty(s.nodes) <= s.f;
+{
+    assert forall id :: 0 <= id < |s.nodes| ==> nodeInit(s.nodes[id], s.f, s.n, id);
+    assert forall id :: 0 <= id < s.n ==> (s.nodes[id].faulty <==> id < s.f);
+
+    lemma_Node_Faultiness_Count_Invariant_Helper(s.nodes, s.f, s.n);
+    assert s.nodes[..s.n] == s.nodes;
+}
+
+lemma {:induction i} lemma_Node_Faultiness_Count_Invariant_Helper(nodes: seq<Node>, f:int, i:int) 
+    requires forall id :: 0 <= id < |nodes| ==> (nodes[id].faulty <==> id < f)
+    requires 0 <= f <= |nodes|;
+    requires 0 <= i <= |nodes|;
+    ensures i <= f ==> countFaulty(nodes[..i]) <= i;
+    ensures i > f ==> countFaulty(nodes[..i]) <= f;
+{
+    if i <= f {
+        assert |nodes[..i]| <= f;
+        lemma_Count_Faulty_Upper_Bound_Property(nodes[..i]);
+    } else {
+        lemma_Node_Faultiness_Count_Upper_Bound(nodes, f, i);
+    }
+} 
+
+/* Prove that for i >= f, countFaulty(nodes[..i]) = countFaulty(nodes[..f]) */
+lemma {:induction i} lemma_Node_Faultiness_Count_Upper_Bound(nodes: seq<Node>, f:int, i:int) 
+    decreases i;
+    requires forall id :: 0 <= id < |nodes| ==> (nodes[id].faulty <==> id < f)
+    requires 0 <= f <= |nodes|;
+    requires f < i <= |nodes|;
+    ensures i > f ==> countFaulty(nodes[..i]) == countFaulty(nodes[..f]);
+{
+    if i == f {
+        assert countFaulty(nodes[..i]) == countFaulty(nodes[..f]);
+    } else {
+        assert !nodes[i-1].faulty;
+        lemma_Count_Faulty_Increment_Property(nodes, i);
+    }
+} 
 }
