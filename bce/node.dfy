@@ -113,7 +113,7 @@ function countTrue(syn: syndrome) : int
     decreases syn
 {
     if |syn| == 0 then 0 else (
-        if syn[0] then 1 + countTrue(syn[1..]) else countTrue(syn[1..])
+        if syn[|syn|-1] then 1 + countTrue(syn[0..|syn|-1]) else countTrue(syn[0..|syn|-1])
     )
 }
 

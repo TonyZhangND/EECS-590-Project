@@ -1,3 +1,4 @@
+include "../Libraries/common.dfy"
 include "service.dfy"
 include "node.dfy"
 include "service_invariants.dfy"
@@ -6,6 +7,7 @@ module BCE_Proof {
 import opened BCE_Protocol_Service
 import opened BCE_Protocol_Node
 import opened Service_Invariants
+import opened Libraries_Common
 
 
 /****************************************************************************************/
@@ -86,7 +88,7 @@ lemma lemma_BCE_Validity_Correct_Nodes_Decide_Codeword(s':Service, syndromes: se
     requires forall node :: 
         node in s'.nodes && !node.faulty
         ==>
-        && node.symbols == node.codeword  //by "everyone is correct" assumption
+        && node.symbols == node.codeword  //by "everyone is behaving" temporary assumption
         && node.state == Phase2
         && 0 <= node.id < s'.n
         && 0 <= node.id < |syndromes[node.id]|;
@@ -97,10 +99,10 @@ lemma lemma_BCE_Validity_Correct_Nodes_Decide_Codeword(s':Service, syndromes: se
     forall node | node in s'.nodes && !node.faulty
     ensures decideOnCodeWord(node, syndromes[node.id])
     {
-        var syndromes_received := syndromes[node.id];
+        var syndromes_received := syndromes[node.id];  // seq of syndromes received by node.id
         assert syndromes_received == extractSyndromes(s'.nodes);
         lemma_Extracted_Syndromes_Are_Computed(s'.nodes);
-        var my_syndrome := syndromes_received[node.id];
+        var my_syndrome := syndromes_received[node.id]; // syndome computed by node.id for itself
         assert node == s'.nodes[node.id];
         assert my_syndrome == computeSyndrome(node);
         lemma_Computed_Syndromes_Have_Length_n(node, my_syndrome);
@@ -117,7 +119,7 @@ lemma {:induction my_syndrome} lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_
     requires |my_syndrome| == node.n;
     requires node.n == 3 * node.f + 1
     requires node.n == |node.symbols| == |node.codeword|; 
-    requires node.symbols == node.codeword; //by "everyone is correct" assumption
+    requires node.symbols == node.codeword; //by "everyone is behaving" temporary assumption
     requires my_syndrome == computeSyndrome(node);
     ensures countTrue(my_syndrome) >= node.n - node.f;
 {
@@ -134,7 +136,7 @@ lemma {:induction i} lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_Good_Helpe
     requires |my_syndrome| == node.n;
     requires node.n == 3 * node.f + 1
     requires node.n == |node.symbols| == |node.codeword|; 
-    requires node.symbols == node.codeword; //by "everyone is correct" assumption
+    requires node.symbols == node.codeword; //by "everyone is behaving" temporary assumption
     requires my_syndrome == computeSyndrome(node);
     requires 0 <= i <= node.n;
     ensures countTrue(my_syndrome[0..i]) >= i - node.f;
@@ -148,7 +150,11 @@ lemma {:induction i} lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_Good_Helpe
         assert node.symbols[i-1] == node.codeword[i-1];
         lemma_Computed_Syndromes_Is_Correct(node, my_syndrome);
         assert my_syndrome[i-1] == true;
-        assert countTrue(my_syndrome[0..i]) == 1 + countTrue(my_syndrome[0..i-1]);
+        var prefix := my_syndrome[0..i];
+        assert |prefix| > 0;
+        assert prefix[|prefix|-1] == true;
+        assert countTrue(prefix) == 1 + countTrue(prefix[0..|prefix|-1]);
+        assert my_syndrome[0..i-1] == prefix[0..|prefix|-1];
     }
 }
 }
