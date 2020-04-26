@@ -111,6 +111,8 @@ lemma lemma_BCE_Validity_Receive_n_f_Common_Symbols(s:Service, s':Service)
 }
 
 
+/* Prove that if countFaulty(nodes) <= f, then 
+* countSame(node.codeword, node.symbols) >= |nodes| - f */
 lemma {:induction nodes} lemma_CountSame_Complements_CountFaulty(nodes: seq<Node>, node: Node, f: int) 
     requires |nodes| > 0;
     requires |node.symbols| == |node.codeword| == |nodes|;
