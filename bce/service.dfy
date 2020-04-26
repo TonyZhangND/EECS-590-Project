@@ -45,7 +45,6 @@ predicate serviceExchangeSymbols(s: Service, s': Service)
     && s' == s.(nodes := s'.nodes, state := SPhase2)
     && |s'.nodes| == |s.nodes|
     && forall id :: 0 <= id < |s.nodes| ==> 
-        // assert symbolsForExchange[id][id] == s.nodes[id].codeword[id];  // TODO
         nodeReceiveSymbols(s.nodes[id], s'.nodes[id], symbolsForExchange[id])
 }
 
@@ -175,6 +174,15 @@ lemma {:induction nodes} lemma_Extract_Generates_One_Symbol_For_Each_Node(nodes:
     ensures |extractSymbols(nodes)| == |nodes|;
 {}
 
+lemma {:induction nodes} lemma_Extract_Takes_ith_Symbol_From_Node_i(nodes: seq<Node>) 
+    requires forall s :: s in nodes ==> 0 <= s.id < s.n;
+    requires forall s :: s in nodes ==> |s.codeword| == s.n == |nodes|;
+    requires |extractSymbols(nodes)| == |nodes|;
+    ensures forall i :: 0 <= i < |nodes| ==> extractSymbols(nodes)[i] == nodes[i].codeword[i];
+{
+    // TODO
+}
+
 
 /* Wrapper for lemma_Exchanged_Symbols_Are_Extracted_Helper */
 lemma {:induction nodes} lemma_Exchanged_Symbols_Are_Extracted(nodes: seq<Node>) 
@@ -281,22 +289,4 @@ lemma {:induction nodes} lemma_Extracted_Syndromes_Are_Computed(nodes: seq<Node>
     ensures |extractSyndromes(nodes)| == |nodes|
     ensures forall id :: 0 <= id < |extractSyndromes(nodes)| ==> extractSyndromes(nodes)[id] == computeSyndrome(nodes[id]);
 {}
-
-
-// TODO
-// lemma {:induction nodes} lemma_Extracted_Symbols_Are_Correct(nodes: seq<Node>, symbols: seq<symbol>) 
-//     requires forall s :: s in nodes ==> 0 <= s.id < s.n;
-//     requires forall s :: s in nodes ==> |s.codeword| == s.n == |nodes|;    
-//     requires symbols == extractSymbols(nodes);
-//     requires |symbols| == |nodes|;
-//     ensures forall i :: 0 <= i < |nodes| ==> (
-//         !nodes[i].faulty ==> symbols[i] == nodes[i].codeword[i]
-//     )
-// {
-//     forall i | 0 <= i < |nodes| && !nodes[i].faulty
-//     ensures symbols[i] == nodes[i].codeword[i]
-//     {
-//         assert symbols[i] == nodes[i].codeword[i];
-//     }
-// }
 }
