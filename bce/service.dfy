@@ -103,7 +103,7 @@ function symbolsToExchangeHelper(nodes: seq<Node>, i: nat) : seq<seq<symbol>>
 }
 
 /* Helper function that generates a single seq<symbol> for exchange. 
-* This is where Byzantine behavior can be modeled */
+* TONY: This is where Byzantine behavior can be modeled */
 function extractSymbols(nodes: seq<Node>) : seq<symbol> 
     decreases nodes;
     // requires forall s :: s in nodes ==> s.n == 3*s.f + 1;
@@ -111,7 +111,7 @@ function extractSymbols(nodes: seq<Node>) : seq<symbol>
     requires forall s :: s in nodes ==> |s.codeword| == s.n;
 {
     if |nodes| == 0 then [] else
-    [nodes[0].codeword[nodes[0].id]] + extractSymbols(nodes[1..])
+    extractSymbols(nodes[..|nodes|-1]) + [nodes[|nodes|-1].codeword[nodes[|nodes|-1].id]]
 }
 
 
@@ -136,7 +136,7 @@ function syndromesToExchangeHelper(nodes: seq<Node>, i: nat) : seq<seq<syndrome>
 }
 
 /* Helper function that generates a single seq<syndrome> for exchange. 
-* This is where Byzantine behavior can be modeled */
+* TONY: This is where Byzantine behavior can be modeled */
 function extractSyndromes(nodes: seq<Node>) : seq<syndrome> 
     decreases nodes;
     requires forall s :: s in nodes ==> s.n == |s.symbols| == |s.codeword|;
@@ -177,10 +177,35 @@ lemma {:induction nodes} lemma_Extract_Generates_One_Symbol_For_Each_Node(nodes:
 lemma {:induction nodes} lemma_Extract_Takes_ith_Symbol_From_Node_i(nodes: seq<Node>) 
     requires forall s :: s in nodes ==> 0 <= s.id < s.n;
     requires forall s :: s in nodes ==> |s.codeword| == s.n == |nodes|;
+    requires forall i :: 0 <= i < |nodes| ==> nodes[i].id == i;
     requires |extractSymbols(nodes)| == |nodes|;
     ensures forall i :: 0 <= i < |nodes| ==> extractSymbols(nodes)[i] == nodes[i].codeword[i];
 {
-    // TODO
+    lemma_Extract_Generates_One_Symbol_For_Each_Node(nodes[..|nodes|]);
+    lemma_Extract_Takes_ith_Symbol_From_Node_i_helper(nodes, |nodes|);
+    assert nodes[..|nodes|] == nodes;
+}
+
+
+lemma {:induction k} lemma_Extract_Takes_ith_Symbol_From_Node_i_helper(nodes: seq<Node>, k :int)
+    decreases k;
+    requires forall s :: s in nodes ==> 0 <= s.id < s.n;
+    requires forall s :: s in nodes ==> |s.codeword| == s.n == |nodes|;
+    requires forall i :: 0 <= i < |nodes| ==> nodes[i].id == i;
+    requires |extractSymbols(nodes)| == |nodes|;
+    requires 0 <= k <= |nodes|;
+    requires |extractSymbols(nodes[..k])| == k;
+    ensures forall i :: 0 <= i < k ==> extractSymbols(nodes[..k])[i] == nodes[i].codeword[i];
+{
+    if k > 0 {
+        lemma_Extract_Generates_One_Symbol_For_Each_Node(nodes[..k-1]);
+        lemma_Extract_Takes_ith_Symbol_From_Node_i_helper(nodes, k-1);
+        assert forall i :: 0 <= i < k-1 ==> extractSymbols(nodes[..k-1])[i] == nodes[i].codeword[i];
+        var prefix := nodes[..k];
+        assert extractSymbols(prefix) == extractSymbols(prefix[..|prefix|-1]) + [prefix[|prefix|-1].codeword[prefix[|prefix|-1].id]];
+        assert prefix[..|prefix|-1] == nodes[..k-1];
+        assert nodes[k-1].id == k-1;
+    }
 }
 
 
