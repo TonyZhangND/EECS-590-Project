@@ -50,6 +50,7 @@ predicate nodeReceiveSymbols(s: Node, s':Node, received_symbols: seq<nat>)
 predicate nodeReceiveSyndromesAndDecide(s: Node, s': Node, syndromes: seq<syndrome>)
     requires s.state == Phase2;
     requires |syndromes| == s.n;
+    requires forall syn :: syn in syndromes ==> |syn| == s.n;
 {   
     0 <= s.id < s.n
     && if decideOnCodeWord(s, syndromes) then (
@@ -72,14 +73,56 @@ predicate nodeReceiveSyndromesAndDecide(s: Node, s': Node, syndromes: seq<syndro
 * BCE protocol */
 predicate decideOnCodeWord(s: Node, syndromes: seq<syndrome>) 
     requires s.state == Phase2;
+    requires s.n > 0;
     requires 0 <= s.id < |syndromes| ;
+    requires forall syn :: syn in syndromes ==> |syn| == s.n;
 {
     if countTrue(syndromes[s.id]) < s.n - s.f then (
         false
     ) else (
-        countGoodSyndromes(syndromes, s.n-s.f) >= s.n - s.f
+        exists goodSet : multiset<syndrome> :: goodSet <= multiset(syndromes) && goodSyndromeSet(goodSet, s.n, s.n-s.f)
     ) 
 }
+
+
+predicate goodSyndromeSet(syndromes: multiset<syndrome>, n: int, thresh: int) 
+    requires n > 0;
+    requires forall syn :: syn in syndromes ==> |syn| == n;
+{
+    |syndromes| >= thresh
+    && countMatchingBits(syndromes, n) >= thresh
+}
+
+/* Returns the number of indices where all bits at that index are true */
+function countMatchingBits(syndromes: multiset<syndrome>, n: int) : int
+    requires n > 0;
+    requires forall syn :: syn in syndromes ==> |syn| == n;
+{
+    countMatchingBitsHelper(syndromes, n, n-1)
+}
+
+/* Returns the number of indices where all bits at that index are true up to index i-1 */
+function countMatchingBitsHelper(syndromes: multiset<syndrome>, n: int, i: int) : int
+    decreases i;
+    requires 0 <= i < n;
+    requires forall syn :: syn in syndromes ==> |syn| == n;
+{
+    if i == 0 then 0 else
+    if allMatchAt(syndromes, n, i) then 1 + countMatchingBitsHelper(syndromes, n, i-1) 
+    else countMatchingBitsHelper(syndromes, n, i-1) 
+}
+
+/* Returns true if all bits at index i are true */
+predicate allMatchAt(syndromes: multiset<syndrome>, n: int, i: int)
+    decreases syndromes;
+    requires forall syn :: syn in syndromes ==> |syn| == n;
+    requires 0 <= i < n;   
+{
+    if |syndromes| == 0 then true else
+    var nextToCheck : syndrome :| nextToCheck in syndromes;
+    nextToCheck[i] && allMatchAt(syndromes-multiset{nextToCheck}, n, i) 
+}
+
 
 /* Maps Node s to its syndome */
 function computeSyndrome(s: Node) : syndrome
@@ -98,14 +141,14 @@ function computeSyndromeHelper(codeword: seq<nat>, symbols: seq<nat>) : syndrome
 
 /* Maps syndromes_seq to the number of syndromes in syndromes_seq that 
 * has #true bits >= thresh */
-function countGoodSyndromes(syndromes_seq: seq<syndrome>, thresh: int) : int
-    decreases syndromes_seq
-{
-    if |syndromes_seq| == 0 then 0 else
-    var x := countTrue(syndromes_seq[|syndromes_seq|-1]);
-    if x >= thresh then 1 + countGoodSyndromes(syndromes_seq[..|syndromes_seq|-1], thresh) else 
-    countGoodSyndromes(syndromes_seq[..|syndromes_seq|-1], thresh)
-}
+// function countGoodSyndromes(syndromes_seq: seq<syndrome>, thresh: int) : int
+//     decreases syndromes_seq
+// {
+//     if |syndromes_seq| == 0 then 0 else
+//     var x := countTrue(syndromes_seq[|syndromes_seq|-1]);
+//     if x >= thresh then 1 + countGoodSyndromes(syndromes_seq[..|syndromes_seq|-1], thresh) else 
+//     countGoodSyndromes(syndromes_seq[..|syndromes_seq|-1], thresh)
+// }
 
 /* Maps syn to the number of True bits in syn */
 function countTrue(syn: syndrome) : int 
