@@ -258,9 +258,11 @@ lemma lemma_BCE_Validity_Correct_Nodes_Decide_Codeword(s':Service, syndromes: se
         assert countTrue(my_syndrome) >= node.n - node.f;
 
         // Prove that n-f of received syndromes are good
-        // assert forall i :: 0 <= i < s'.n ==> syndromes_received[i] == computeSyndrome(s'.nodes[i]);
-        // lemma_BCE_Validity_CountGoodSyndromes_Succeeds(s', node, syndromes_received);
         // TODO
+        assert exists goodSet : multiset<syndrome> :: (
+            && goodSet <= multiset(syndromes_received) 
+            && goodSyndromeSet(goodSet, s'.n, s'.n-s'.f)
+        );
     }
 }
 
