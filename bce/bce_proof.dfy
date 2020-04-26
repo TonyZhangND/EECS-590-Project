@@ -86,7 +86,9 @@ lemma lemma_BCE_Validity_Receive_n_f_Common_Symbols(s:Service, s':Service)
     ensures forall node :: 
         && node in s'.nodes && !node.faulty
         ==>
-        node.symbols == node.codeword;
+        |node.codeword| == |node.symbols|
+        && countSame(node.codeword, node.symbols) >= s'.n - s'.f
+        && node.symbols == node.codeword; //by "everyone is behaving" temporary assumption
 {
     // TODO
 }
@@ -109,16 +111,24 @@ lemma lemma_BCE_Validity_Correct_Nodes_Send_Good_Syndrome(s':Service)
     requires forall node :: 
         node in s'.nodes && !node.faulty
         ==>
-        && node.symbols == node.codeword  //by "everyone is behaving" temporary assumption
         && node.state == Phase2
         && 0 <= node.id < s'.n
-
     // Facts needed for this proof
+    requires forall node :: 
+        && node in s'.nodes && !node.faulty
+        ==>
+        && countSame(node.codeword, node.symbols) >= s'.n - s'.f;
     ensures forall id :: 0 <= id < s'.n 
         ==> 
         (!s'.nodes[id].faulty ==> countTrue(computeSyndrome(s'.nodes[id])) >= s'.n - s'.f);
 {
-    //TODO
+    forall id | 0 <= id < s'.n && !s'.nodes[id].faulty
+    ensures countTrue(computeSyndrome(s'.nodes[id])) >= s'.n - s'.f
+    {
+        var node := s'.nodes[id];
+        assert countSame(node.codeword, node.symbols)>= s'.n - s'.f;
+        lemma_CountTrue_Equals_CountSame(node);
+    }
 }
 
 
