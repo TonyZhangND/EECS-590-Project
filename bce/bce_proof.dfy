@@ -59,14 +59,14 @@ lemma lemma_BCE_Validity(s:Service, s':Service, s'':Service)
     assert forall node :: 
         && node in s'.nodes && !node.faulty
         ==>
-        node.symbols == node.codeword;
+        && countSame(node.codeword, node.symbols) >= s'.n - s'.f;
     lemma_BCE_Validity_Correct_Nodes_Send_Good_Syndrome(s'); 
     var syndromes := syndromesToExchange(s'.nodes);
     lemma_Exchanged_Syndromes_Are_Extracted(s'.nodes);
     lemma_BCE_Validity_Correct_Nodes_Decide_Codeword(s', syndromes);
 }
 
-// TODO
+
 lemma lemma_BCE_Validity_Receive_n_f_Common_Symbols(s:Service, s':Service) 
     // Validity assumption
     requires forall node1, node2 :: 
@@ -75,6 +75,7 @@ lemma lemma_BCE_Validity_Receive_n_f_Common_Symbols(s:Service, s':Service)
             node1.codeword == node2.codeword;
     // Boilerplate stuff
     requires serviceInit(s);
+    requires countFaulty(s'.nodes) <= s'.f;
     requires serviceExchangeSymbols(s, s');
     requires node_invariants(s');
     // Behavior of faulty node, for convinience
@@ -83,20 +84,87 @@ lemma lemma_BCE_Validity_Receive_n_f_Common_Symbols(s:Service, s':Service)
         ==>
         |node.symbols| == |node.codeword|;
     // Behavior of correct node
-    ensures forall node :: 
-        && node in s'.nodes && !node.faulty
+    ensures forall i :: 
+        0 <= i < s'.n && !s'.nodes[i].faulty
         ==>
-        |node.codeword| == |node.symbols|
-        && countSame(node.codeword, node.symbols) >= s'.n - s'.f
-        && node.symbols == node.codeword; //by "everyone is behaving" temporary assumption
+        |s'.nodes[i].codeword| == |s'.nodes[i].symbols|
+        && countSame(s'.nodes[i].codeword, s'.nodes[i].symbols) >= s'.n - s'.f
 {
-    // TODO
+    lemma_Exchange_Generates_One_SymbolSeq_For_Each_Node(s.nodes, 0);
+    assert forall i :: 0 <= i < s.n ==> s'.nodes[i].symbols == symbolsToExchange(s.nodes)[i];
+    lemma_Exchanged_Symbols_Are_Extracted(s.nodes);
+
+    forall i | 0 <= i < s'.n && !s'.nodes[i].faulty
+    ensures 
+        && |s'.nodes[i].symbols| == |s'.nodes[i].codeword|
+        && countSame(s'.nodes[i].codeword, s'.nodes[i].symbols) >= s'.n - s'.f
+    {
+        var node := s'.nodes[i];
+        assert node.symbols == symbolsToExchange(s.nodes)[i] == extractSymbols(s.nodes);
+        lemma_Extract_Takes_ith_Symbol_From_Node_i(s.nodes);
+        assert forall k :: 0 <= k < s'.n && !s.nodes[k].faulty 
+            ==> node.symbols[k] == s.nodes[k].codeword[k] == node.codeword[k];
+        assert countFaulty(s'.nodes) <= s'.f;      
+        lemma_CountSame_Complements_CountFaulty(s'.nodes, node, s'.f);
+        assert |s'.nodes| == s'.n;
+    }
+}
+
+
+lemma {:induction nodes} lemma_CountSame_Complements_CountFaulty(nodes: seq<Node>, node: Node, f: int) 
+    requires |nodes| > 0;
+    requires |node.symbols| == |node.codeword| == |nodes|;
+    requires forall n :: n in nodes ==> |n.codeword| == |nodes|;
+    requires countFaulty(nodes) <= f;
+    requires forall k :: 0 <= k < |nodes| && !nodes[k].faulty 
+            ==> node.symbols[k] == nodes[k].codeword[k] == node.codeword[k];
+    ensures countSame(node.codeword, node.symbols) >= |nodes| - f;
+{
+    var n := |nodes|;
+    assert n > 0;
+    lemma_Count_Faulty_Increment_Property(nodes, n);
+    lemma_CountSame_Complements_CountFaulty_Helper(nodes, node, f, n);
+    assert node.codeword[..n] == node.codeword;
+    assert node.symbols[..n] == node.symbols;
+}
+
+
+lemma {:induction f, i} lemma_CountSame_Complements_CountFaulty_Helper(nodes: seq<Node>, node: Node, f: int, i: int)
+    decreases f, i;
+    requires 0 <= i <= |nodes|;
+    requires |node.symbols| == |node.codeword| == |nodes|;
+    requires forall n :: n in nodes ==> |n.codeword| == |nodes|;
+    requires countFaulty(nodes[..i]) <= f;
+    requires forall k :: 0 <= k < |nodes| && !nodes[k].faulty 
+            ==> node.symbols[k] == nodes[k].codeword[k] == node.codeword[k];
+    ensures countSame(node.codeword[..i], node.symbols[..i]) >= i - f;
+{
+    if i == 0 {
+        assert countSame(node.codeword[..i], node.symbols[..i]) == 0;
+    } else {
+        if !nodes[i-1].faulty {
+            lemma_Count_Faulty_Increment_Property(nodes, i);
+            lemma_CountSame_Complements_CountFaulty_Helper(nodes, node, f, i-1);
+            assert node.symbols[i-1] == node.codeword[i-1];
+            lemma_CountSame_Increment_Property(node.codeword, node.symbols, i);
+        } else {
+            if f > 0 {
+                lemma_Count_Faulty_Increment_Property(nodes, i);
+                lemma_CountSame_Complements_CountFaulty_Helper(nodes, node, f-1, i-1);
+                lemma_CountSame_Increment_Property(node.codeword, node.symbols, i);
+            } else {
+                lemma_Count_Faulty_Increment_Property(nodes, i);
+                assert countFaulty(nodes[..i-1]) < 0;
+                lemma_Count_Faulty_Non_Negative_Property(nodes[..i-1]);
+                assert false;
+            }
+        }
+    }
 }
 
 
 
 /* Prove that for any non-faulty node n, countTrue(computeSyndrome(n)) >= n - f */
-// TODO
 lemma lemma_BCE_Validity_Correct_Nodes_Send_Good_Syndrome(s':Service) 
     // Validity assumption
     requires forall node1, node2 :: 
@@ -150,7 +218,6 @@ lemma lemma_BCE_Validity_Correct_Nodes_Decide_Codeword(s':Service, syndromes: se
     requires forall nd :: 
         nd in s'.nodes && !nd.faulty
         ==>
-        && nd.symbols == nd.codeword  //by "everyone is behaving" temporary assumption
         && nd.state == Phase2
         && 0 <= nd.id < s'.n
         && 0 <= nd.id < |syndromes[nd.id]|;
@@ -174,7 +241,7 @@ lemma lemma_BCE_Validity_Correct_Nodes_Decide_Codeword(s':Service, syndromes: se
         assert node == s'.nodes[node.id];
         assert my_syndrome == computeSyndrome(node);
         lemma_Computed_Syndromes_Have_Length_n(node, my_syndrome);
-        lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_Good(node, my_syndrome);
+        // lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_Good(node, my_syndrome);
         assert countTrue(my_syndrome) >= node.n - node.f;
 
         // Prove that n-f of received syndromes are good
@@ -200,7 +267,6 @@ lemma {:induction syndromes_received} lemma_BCE_Validity_CountGoodSyndromes_Succ
     requires forall nd :: 
         nd in s'.nodes && !nd.faulty
         ==>
-        && nd.symbols == nd.codeword  //by "everyone is behaving" temporary assumption
         && nd.state == Phase2
         && 0 <= nd.id < s'.n
     // Facts needed for this proof
@@ -307,48 +373,48 @@ lemma {:induction i, f} lemma_BCE_Validity_CountGoodSyndromes_Succeeds_Helper(s'
 
 
 /* Prove that for any correct node, its own syndrome has n-f 'true' bits */
-lemma {:induction my_syndrome} lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_Good(node: Node, my_syndrome: syndrome) 
-    requires !node.faulty;
-    requires node.state == Phase2;
-    requires |my_syndrome| == node.n;
-    requires node.n == 3 * node.f + 1
-    requires node.n == |node.symbols| == |node.codeword|; 
-    requires node.symbols == node.codeword; //by "everyone is behaving" temporary assumption
-    requires my_syndrome == computeSyndrome(node);
-    ensures countTrue(my_syndrome) >= node.n - node.f;
-{
-    assert |computeSyndrome(node)| == node.n;
-    assert my_syndrome[..node.n] == my_syndrome;
-    lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_Good_Helper(node, my_syndrome, node.n);
-}
+// lemma {:induction my_syndrome} lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_Good(node: Node, my_syndrome: syndrome) 
+//     requires !node.faulty;
+//     requires node.state == Phase2;
+//     requires |my_syndrome| == node.n;
+//     requires node.n == 3 * node.f + 1
+//     requires node.n == |node.symbols| == |node.codeword|; 
+//     requires node.symbols == node.codeword; //by "everyone is behaving" temporary assumption
+//     requires my_syndrome == computeSyndrome(node);
+//     ensures countTrue(my_syndrome) >= node.n - node.f;
+// {
+//     assert |computeSyndrome(node)| == node.n;
+//     assert my_syndrome[..node.n] == my_syndrome;
+//     lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_Good_Helper(node, my_syndrome, node.n);
+// }
 
 
-lemma {:induction i} lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_Good_Helper(node: Node, my_syndrome: syndrome, i: int) 
-    decreases i;
-    requires !node.faulty;
-    requires node.state == Phase2;
-    requires |my_syndrome| == node.n;
-    requires node.n == 3 * node.f + 1
-    requires node.n == |node.symbols| == |node.codeword|; 
-    requires node.symbols == node.codeword; //by "everyone is behaving" temporary assumption
-    requires my_syndrome == computeSyndrome(node);
-    requires 0 <= i <= node.n;
-    ensures countTrue(my_syndrome[..i]) >= i - node.f;
-{
-    if i == 0 {
-        assert my_syndrome[..i] == [];
-        assert countTrue(my_syndrome[..i]) == 0;
-    } else {
-        lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_Good_Helper(node, my_syndrome, i-1);
-        assert countTrue(my_syndrome[..i-1]) >= i-1 - node.f;
-        assert node.symbols[i-1] == node.codeword[i-1];
-        lemma_Computed_Syndromes_Is_Correct(node, my_syndrome);
-        assert my_syndrome[i-1] == true;
-        var prefix := my_syndrome[..i];
-        assert |prefix| > 0;
-        assert prefix[|prefix|-1] == true;
-        assert countTrue(prefix) == 1 + countTrue(prefix[..|prefix|-1]);
-        assert my_syndrome[..i-1] == prefix[..|prefix|-1];
-    }
-}
+// lemma {:induction i} lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_Good_Helper(node: Node, my_syndrome: syndrome, i: int) 
+//     decreases i;
+//     requires !node.faulty;
+//     requires node.state == Phase2;
+//     requires |my_syndrome| == node.n;
+//     requires node.n == 3 * node.f + 1
+//     requires node.n == |node.symbols| == |node.codeword|; 
+//     requires node.symbols == node.codeword; //by "everyone is behaving" temporary assumption
+//     requires my_syndrome == computeSyndrome(node);
+//     requires 0 <= i <= node.n;
+//     ensures countTrue(my_syndrome[..i]) >= i - node.f;
+// {
+//     if i == 0 {
+//         assert my_syndrome[..i] == [];
+//         assert countTrue(my_syndrome[..i]) == 0;
+//     } else {
+//         lemma_BCE_Validity_Correct_Nodes_Own_Syndrome_Is_Good_Helper(node, my_syndrome, i-1);
+//         assert countTrue(my_syndrome[..i-1]) >= i-1 - node.f;
+//         assert node.symbols[i-1] == node.codeword[i-1];
+//         lemma_Computed_Syndromes_Is_Correct(node, my_syndrome);
+//         assert my_syndrome[i-1] == true;
+//         var prefix := my_syndrome[..i];
+//         assert |prefix| > 0;
+//         assert prefix[|prefix|-1] == true;
+//         assert countTrue(prefix) == 1 + countTrue(prefix[..|prefix|-1]);
+//         assert my_syndrome[..i-1] == prefix[..|prefix|-1];
+//     }
+// }
 }

@@ -29,11 +29,10 @@ lemma lemma_Count_Faulty_Increment_Property(nodes: seq<Node>, i: int)
     var nodes_prefix := nodes[..i];
     if !nodes[i-1].faulty {
         assert countFaulty(nodes_prefix) == countFaulty(nodes_prefix[..|nodes_prefix|-1]);
-        assert nodes_prefix[..|nodes_prefix|-1] == nodes[..i-1];
     } else {
         assert countFaulty(nodes_prefix) == countFaulty(nodes_prefix[..|nodes_prefix|-1]) + 1;
-        assert nodes_prefix[..|nodes_prefix|-1] == nodes[..i-1];
     }
+    assert nodes_prefix[..|nodes_prefix|-1] == nodes[..i-1];
 }
 
 /* Proof that countFaulty(nodes) cannot give a negative number */
