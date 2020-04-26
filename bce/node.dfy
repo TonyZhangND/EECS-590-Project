@@ -132,6 +132,28 @@ function countSame(codeword: seq<nat>, symbols: seq<nat>) : int
 /*                                       LEMMAS                                         */
 /****************************************************************************************/ 
 
+
+lemma lemma_CountSame_Increment_Property(codeword: seq<nat>, symbols: seq<nat>, i: int) 
+    decreases codeword, symbols
+    requires |codeword| == |symbols|
+    requires 0 < i <= |codeword|;
+    ensures codeword[i-1] == symbols[i-1] ==> 
+        countSame(codeword[..i], symbols[..i]) == 1 + countSame(codeword[..i-1], symbols[..i-1]);
+    ensures codeword[i-1] != symbols[i-1] ==> 
+        countSame(codeword[..i], symbols[..i]) == countSame(codeword[..i-1], symbols[..i-1]);
+{
+    var codeword_prefix := codeword[..i];
+    var symbols_prefix := symbols[..i];
+    if codeword[i-1] == symbols[i-1] {
+        assert countSame(codeword_prefix, symbols_prefix) == 1 + countSame(codeword_prefix[..|codeword_prefix|-1], symbols_prefix[..|symbols_prefix|-1]);
+    } else {
+        assert countSame(codeword_prefix, symbols_prefix) == countSame(codeword_prefix[..|codeword_prefix|-1], symbols_prefix[..|symbols_prefix|-1]);
+    }
+        assert symbols_prefix[..|symbols_prefix|-1] == symbols[..i-1];
+        assert codeword_prefix[..|codeword_prefix|-1] == codeword[..i-1];
+}
+
+
 lemma lemma_Computed_Syndromes_Have_Length_n(s: Node, syn: syndrome)
     requires s.n == |s.symbols| == |s.codeword|;
     requires syn == computeSyndrome(s);
@@ -240,20 +262,15 @@ lemma {:induction i} lemma_CountTrue_Equals_CountSame_Helper(syn: syndrome, code
         assert countTrue(syn[..i]) == countSame(codeword[..i], symbols[..i]) == 0;
     } else {
         lemma_CountTrue_Equals_CountSame_Helper(syn, codeword, symbols, i-1);
+        lemma_CountSame_Increment_Property(codeword, symbols, i);
         assert syn[i-1] == (symbols[i-1] == codeword[i-1]);
-        var symbols_prefix := symbols[..i];
         var syn_prefix := syn[..i];
-        var codeword_prefix := codeword[..i];
         if symbols[i-1] == codeword[i-1] {
-            assert countSame(codeword_prefix, symbols_prefix) == countSame(codeword_prefix[..|codeword_prefix|-1], symbols_prefix[..|symbols_prefix|-1]) + 1;
             assert countTrue(syn_prefix) == countTrue(syn_prefix[..|syn_prefix|-1]) + 1; 
         } else {
-            assert countSame(codeword_prefix, symbols_prefix) == countSame(codeword_prefix[..|codeword_prefix|-1], symbols_prefix[..|symbols_prefix|-1]);
             assert countTrue(syn_prefix) == countTrue(syn_prefix[..|syn_prefix|-1]); 
         }
         assert syn_prefix[..|syn_prefix|-1] == syn[..i-1];
-            assert codeword_prefix[..|codeword_prefix|-1] == codeword[..i-1];
-            assert symbols_prefix[..|symbols_prefix|-1] == symbols[..i-1];
     }
 } 
 
