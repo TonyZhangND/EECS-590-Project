@@ -79,7 +79,6 @@ predicate decideOnCodeWord(s: Node, syndromes: seq<syndrome>)
     ) else (
         countGoodSyndromes(syndromes, s.n-s.f) >= s.n - s.f
     ) 
-
 }
 
 /* Maps Node s to its syndome */
@@ -115,6 +114,17 @@ function countTrue(syn: syndrome) : int
     if |syn| == 0 then 0 else (
         if syn[|syn|-1] then 1 + countTrue(syn[..|syn|-1]) else countTrue(syn[..|syn|-1])
     )
+}
+
+function countSame(codeword: seq<nat>, symbols: seq<nat>) : int
+    decreases codeword, symbols
+    requires |codeword| == |symbols|;
+{   
+    if |codeword| == 0 then 0
+    else if codeword[|codeword|-1] == symbols[|symbols|-1] then 
+        1 + countSame(codeword[..|codeword|-1], symbols[..|symbols|-1])
+    else
+        countSame(codeword[..|codeword|-1], symbols[..|symbols|-1])        
 }
 
 
@@ -204,6 +214,48 @@ lemma {:induction codeword, symbols} lemma_Computed_Syndromes_Have_Length_n_Help
         lemma_Computed_Syndromes_Have_Length_n_Helper(codeword[..|codeword|-1], symbols[..|symbols|-1], syn[..|syn|-1]);
     }
 }
+
+
+lemma lemma_CountTrue_Equals_CountSame(node: Node) 
+    requires node.n == |node.symbols| == |node.codeword|;
+    ensures countTrue(computeSyndrome(node)) == countSame(node.codeword, node.symbols);
+{
+    var syn := computeSyndrome(node);
+    lemma_Computed_Syndromes_Have_Length_n(node, syn);
+    lemma_Computed_Syndromes_Is_Correct(node, syn);
+    lemma_CountTrue_Equals_CountSame_Helper(syn, node.codeword, node.symbols, node.n);
+    assert syn[..node.n] == syn;
+    assert node.codeword[..node.n] == node.codeword;
+    assert node.symbols[..node.n] == node.symbols;
+}
+
+lemma {:induction i} lemma_CountTrue_Equals_CountSame_Helper(syn: syndrome, codeword: seq<nat>, symbols: seq<nat>, i: int)
+    decreases i;
+    requires |syn| == |codeword| == |symbols|;
+    requires 0 <= i <= |syn|;
+    requires forall k :: 0<= k < |syn| ==> syn[k] == (symbols[k] == codeword[k]);
+    ensures countTrue(syn[..i]) == countSame(codeword[..i], symbols[..i]);
+{
+    if i == 0 {
+        assert countTrue(syn[..i]) == countSame(codeword[..i], symbols[..i]) == 0;
+    } else {
+        lemma_CountTrue_Equals_CountSame_Helper(syn, codeword, symbols, i-1);
+        assert syn[i-1] == (symbols[i-1] == codeword[i-1]);
+        var symbols_prefix := symbols[..i];
+        var syn_prefix := syn[..i];
+        var codeword_prefix := codeword[..i];
+        if symbols[i-1] == codeword[i-1] {
+            assert countSame(codeword_prefix, symbols_prefix) == countSame(codeword_prefix[..|codeword_prefix|-1], symbols_prefix[..|symbols_prefix|-1]) + 1;
+            assert countTrue(syn_prefix) == countTrue(syn_prefix[..|syn_prefix|-1]) + 1; 
+        } else {
+            assert countSame(codeword_prefix, symbols_prefix) == countSame(codeword_prefix[..|codeword_prefix|-1], symbols_prefix[..|symbols_prefix|-1]);
+            assert countTrue(syn_prefix) == countTrue(syn_prefix[..|syn_prefix|-1]); 
+        }
+        assert syn_prefix[..|syn_prefix|-1] == syn[..i-1];
+            assert codeword_prefix[..|codeword_prefix|-1] == codeword[..i-1];
+            assert symbols_prefix[..|symbols_prefix|-1] == symbols[..i-1];
+    }
+} 
 
 
 }
