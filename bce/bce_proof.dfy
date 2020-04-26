@@ -39,14 +39,10 @@ lemma lemma_BCE_Termination(s:Service, s':Service, s'':Service)
 /*                                     Validity                                         */
 /****************************************************************************************/ 
 
-/*
-- At the end of round 1: >= n-f symbols in Symbols are common, v;
-- Each non faulty calculates syndrome: InSymbol VS Symbols
-    * >= n-f of the same bits must be true in Syndromes for all non faulty
-- Send syndromes. At the end of round 2: each non faulty has >= n-f sydromes ==> decide
-*/
+/* Main Validity proof */
 lemma lemma_BCE_Validity(s:Service, s':Service, s'':Service) 
     requires BCE(s, s', s'');
+    // Validity assumption
     requires forall node1, node2 :: 
             && node1 in s.nodes && node2 in s.nodes 
             && !node1.faulty && !node2.faulty ==> 
@@ -60,49 +56,80 @@ lemma lemma_BCE_Validity(s:Service, s':Service, s'':Service)
     lemma_Service_Maintains_Invariants(s, s', s'');
     assert forall node :: node in s'.nodes && !node.faulty ==> node.state == Phase2;
     lemma_BCE_Validity_Receive_n_f_Common_Symbols(s, s');
+    assert forall node :: 
+        && node in s'.nodes && !node.faulty
+        ==>
+        node.symbols == node.codeword;
+    lemma_BCE_Validity_Correct_Nodes_Send_Good_Syndrome(s'); 
     var syndromes := syndromesToExchange(s'.nodes);
     lemma_Exchanged_Syndromes_Are_Extracted(s'.nodes);
     lemma_BCE_Validity_Correct_Nodes_Decide_Codeword(s', syndromes);
 }
 
-// TODO: Yuwei
+// TODO
 lemma lemma_BCE_Validity_Receive_n_f_Common_Symbols(s:Service, s':Service) 
-    requires serviceInit(s);
-    requires serviceExchangeSymbols(s, s');
-    requires node_invariants(s');
-    requires |s.nodes| == s.n;
-    requires |s'.nodes| == s'.n;
-    requires s.n == s'.n;
-    requires forall node :: node in s.nodes ==> 0 <= node.id < s.n;
-    requires forall node :: node in s.nodes ==> |node.codeword| == s.n;
-    //requires forall node :: node in s.nodes ==> |node.symbols| == s.n;
-    requires forall node :: node in s'.nodes ==> |node.codeword| == s'.n;
-    //requires forall node :: node in s'.nodes ==> |node.symbols| == s'.n;
-    requires forall  i :: 0 <= i < s.n ==> s.nodes[i].id == i;
-    requires forall  i :: 0 <= i < s'.n ==> s'.nodes[i].id == i;
-    //requires forall node :: node in s.nodes ==> node.n == |node.symbols| == |node.codeword|;
-    //requires forall node :: node in s'.nodes ==> node.n == |node.symbols| == |node.codeword|;
+    // Validity assumption
     requires forall node1, node2 :: 
             && node1 in s.nodes && node2 in s.nodes 
             && !node1.faulty && !node2.faulty ==> 
             node1.codeword == node2.codeword;
+    // Boilerplate stuff
+    requires serviceInit(s);
+    requires serviceExchangeSymbols(s, s');
+    requires node_invariants(s');
+    // Behavior of faulty node, for convinience
+    ensures forall node :: 
+        && node in s'.nodes && node.faulty
+        ==>
+        |node.symbols| == |node.codeword|;
+    // Behavior of correct node
     ensures forall node :: 
         && node in s'.nodes && !node.faulty
         ==>
         node.symbols == node.codeword;
 {
-    var symbols := symbolsToExchange(s.nodes);
-    lemma_Extract_Generates_One_Symbol_For_Each_Node(s.nodes);
-    lemma_Exchanged_Symbols_Are_Extracted(s.nodes);
-    assert forall j :: 0 <= j < |symbols| ==> |symbols[j]| == |s.nodes|;
-    assert (forall j :: 0 <= j < |symbols| ==>
-        (forall  i :: 0 <= i < s'.n ==> 
-            nodeReceiveSymbols(s.nodes[i], s'.nodes[i], symbols[j])));
+    // TODO
 }
 
 
-// TONY
+
+/* Prove that for any non-faulty node n, countTrue(computeSyndrome(n)) >= n - f */
+// TODO
+lemma lemma_BCE_Validity_Correct_Nodes_Send_Good_Syndrome(s':Service) 
+    // Validity assumption
+    requires forall node1, node2 :: 
+            && node1 in s'.nodes && node2 in s'.nodes 
+            && !node1.faulty && !node2.faulty ==> 
+            node1.codeword == node2.codeword;
+    // Boilerplate stuff 
+    requires node_invariants(s');
+    requires |s'.nodes| == s'.n;
+    requires forall  i :: 0 <= i < s'.n ==> s'.nodes[i].id == i
+    requires forall n :: n in s'.nodes && !n.faulty ==> n.n == |n.symbols| == |n.codeword|;
+    requires forall node :: 
+        node in s'.nodes && !node.faulty
+        ==>
+        && node.symbols == node.codeword  //by "everyone is behaving" temporary assumption
+        && node.state == Phase2
+        && 0 <= node.id < s'.n
+
+    // Facts needed for this proof
+    ensures forall id :: 0 <= id < s'.n 
+        ==> 
+        (!s'.nodes[id].faulty ==> countTrue(computeSyndrome(s'.nodes[id])) >= s'.n - s'.f);
+{
+    //TODO
+}
+
+
+/* Prove that all correct nodes will decide on the codeword */
 lemma lemma_BCE_Validity_Correct_Nodes_Decide_Codeword(s':Service, syndromes: seq<seq<syndrome>>) 
+    // Validity assumption
+    requires forall node1, node2 :: 
+            && node1 in s'.nodes && node2 in s'.nodes 
+            && !node1.faulty && !node2.faulty ==> 
+            node1.codeword == node2.codeword;
+    // Boilerplate stuff
     requires node_invariants(s');
     requires |s'.nodes| == s'.n;
     requires forall  i :: 0 <= i < s'.n ==> s'.nodes[i].id == i
@@ -110,13 +137,17 @@ lemma lemma_BCE_Validity_Correct_Nodes_Decide_Codeword(s':Service, syndromes: se
     requires syndromes == syndromesToExchange(s'.nodes);
     requires |syndromes| == s'.n;
     requires countFaulty(s'.nodes) <= s'.f;
-    requires forall node :: 
-        node in s'.nodes && !node.faulty
+    requires forall nd :: 
+        nd in s'.nodes && !nd.faulty
         ==>
-        && node.symbols == node.codeword  //by "everyone is behaving" temporary assumption
-        && node.state == Phase2
-        && 0 <= node.id < s'.n
-        && 0 <= node.id < |syndromes[node.id]|;
+        && nd.symbols == nd.codeword  //by "everyone is behaving" temporary assumption
+        && nd.state == Phase2
+        && 0 <= nd.id < s'.n
+        && 0 <= nd.id < |syndromes[nd.id]|;
+    // Facts needed for this proof
+    requires forall id :: 0 <= id < s'.n 
+        ==> 
+        (!s'.nodes[id].faulty ==> countTrue(computeSyndrome(s'.nodes[id])) >= s'.n - s'.f);
     ensures forall node :: 
         node in s'.nodes && !node.faulty ==> decideOnCodeWord(node, syndromes[node.id]);
 {
@@ -143,32 +174,10 @@ lemma lemma_BCE_Validity_Correct_Nodes_Decide_Codeword(s':Service, syndromes: se
 }
 
 
-/* Prove that for any non-faulty node n, countTrue(computeSyndrome(n)) >= n - f */
-// TODO
-lemma lemma_BCE_Validity_Correct_Nodes_Send_Good_Syndrome(s':Service, node: Node, syndromes_received: seq<syndrome>) 
-    requires node_invariants(s');
-    requires |s'.nodes| == s'.n;
-    requires forall  i :: 0 <= i < s'.n ==> s'.nodes[i].id == i
-    requires node in s'.nodes;
-    requires forall n :: n in s'.nodes ==> n.n == |n.symbols| == |n.codeword|;
-    // requires forall node :: 
-    //     node in s'.nodes && !node.faulty
-    //     ==>
-    //     && node.symbols == node.codeword  //by "everyone is behaving" temporary assumption
-    //     && node.state == Phase2
-    //     && 0 <= node.id < s'.n
-    requires |syndromesToExchange(s'.nodes)| == s'.n;
-    requires syndromes_received == syndromesToExchange(s'.nodes)[node.id];
-    requires |syndromes_received| == s'.n;
-    requires forall i :: 0 <= i < s'.n ==> syndromes_received[i] == computeSyndrome(s'.nodes[i]);
-    ensures forall id :: 0 <= id < s'.n 
-        ==> 
-        (!s'.nodes[id].faulty ==> countTrue(computeSyndrome(s'.nodes[id])) >= node.n - node.f);
-{}
-
 
 /* Prove that if node is correct, then countGoodSyndromes will give a count >= n-f */
 lemma {:induction syndromes_received} lemma_BCE_Validity_CountGoodSyndromes_Succeeds(s':Service, node: Node, syndromes_received: seq<syndrome>) 
+    // Boilerplate stuff
     requires node_invariants(s');
     requires |s'.nodes| == s'.n;
     requires forall  i :: 0 <= i < s'.n ==> s'.nodes[i].id == i
@@ -177,11 +186,24 @@ lemma {:induction syndromes_received} lemma_BCE_Validity_CountGoodSyndromes_Succ
     requires |syndromesToExchange(s'.nodes)| == s'.n;
     requires syndromes_received == syndromesToExchange(s'.nodes)[node.id];
     requires |syndromes_received| == s'.n;
-    requires countFaulty(s'.nodes) <= s'.f;
     requires forall i :: 0 <= i < s'.n ==> syndromes_received[i] == computeSyndrome(s'.nodes[i]);
+    requires forall nd :: 
+        nd in s'.nodes && !nd.faulty
+        ==>
+        && nd.symbols == nd.codeword  //by "everyone is behaving" temporary assumption
+        && nd.state == Phase2
+        && 0 <= nd.id < s'.n
+    // Facts needed for this proof
+    requires forall id :: 0 <= id < s'.n 
+        ==> 
+        (!s'.nodes[id].faulty ==> countTrue(computeSyndrome(s'.nodes[id])) >= s'.n - s'.f);
+    requires forall node1, node2 :: 
+            && node1 in s'.nodes && node2 in s'.nodes 
+            && !node1.faulty && !node2.faulty ==> 
+            node1.codeword == node2.codeword;
+    requires countFaulty(s'.nodes) <= s'.f;
     ensures countGoodSyndromes(syndromes_received, node.n-node.f) >= s'.n - s'.f;
 {
-    lemma_BCE_Validity_Correct_Nodes_Send_Good_Syndrome(s', node, syndromes_received);
     assert s'.nodes[..s'.n] == s'.nodes;
     assert countFaulty(s'.nodes[..s'.n]) <= s'.f;
     lemma_BCE_Validity_CountGoodSyndromes_Succeeds_Helper(s', node, syndromes_received, s'.n, s'.f);
@@ -191,8 +213,8 @@ lemma {:induction syndromes_received} lemma_BCE_Validity_CountGoodSyndromes_Succ
 
 lemma {:induction i, f} lemma_BCE_Validity_CountGoodSyndromes_Succeeds_Helper(s':Service, node: Node, syndromes_received: seq<syndrome>, i: int, f: int) 
     decreases i, f;
-    requires node_invariants(s');
     // Boilerplate stuff
+    requires node_invariants(s');
     requires |s'.nodes| == s'.n;
     requires forall  id :: 0 <= id < s'.n ==> s'.nodes[id].id == id
     requires node in s'.nodes;
