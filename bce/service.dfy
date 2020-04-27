@@ -111,6 +111,10 @@ function extractSymbols(nodes: seq<Node>) : seq<symbol>
     requires forall s :: s in nodes ==> |s.codeword| == s.n;
 {
     if |nodes| == 0 then [] else
+    if nodes[|nodes|-1].faulty then 
+        var x : nat :| true;
+        extractSymbols(nodes[..|nodes|-1]) + [x]
+    else
     extractSymbols(nodes[..|nodes|-1]) + [nodes[|nodes|-1].codeword[nodes[|nodes|-1].id]]
 }
 
@@ -179,7 +183,7 @@ lemma {:induction nodes} lemma_Extract_Takes_ith_Symbol_From_Node_i(nodes: seq<N
     requires forall s :: s in nodes ==> |s.codeword| == s.n == |nodes|;
     requires forall i :: 0 <= i < |nodes| ==> nodes[i].id == i;
     requires |extractSymbols(nodes)| == |nodes|;
-    ensures forall i :: 0 <= i < |nodes| ==> extractSymbols(nodes)[i] == nodes[i].codeword[i];
+    ensures forall i :: 0 <= i < |nodes| ==> !nodes[i].faulty ==> extractSymbols(nodes)[i] == nodes[i].codeword[i];
 {
     lemma_Extract_Generates_One_Symbol_For_Each_Node(nodes[..|nodes|]);
     lemma_Extract_Takes_ith_Symbol_From_Node_i_helper(nodes, |nodes|);
@@ -195,16 +199,21 @@ lemma {:induction k} lemma_Extract_Takes_ith_Symbol_From_Node_i_helper(nodes: se
     requires |extractSymbols(nodes)| == |nodes|;
     requires 0 <= k <= |nodes|;
     requires |extractSymbols(nodes[..k])| == k;
-    ensures forall i :: 0 <= i < k ==> extractSymbols(nodes[..k])[i] == nodes[i].codeword[i];
+    ensures forall i :: 0 <= i < k ==> (!nodes[i].faulty ==> extractSymbols(nodes[..k])[i] == nodes[i].codeword[i]);
 {
     if k > 0 {
         lemma_Extract_Generates_One_Symbol_For_Each_Node(nodes[..k-1]);
         lemma_Extract_Takes_ith_Symbol_From_Node_i_helper(nodes, k-1);
-        assert forall i :: 0 <= i < k-1 ==> extractSymbols(nodes[..k-1])[i] == nodes[i].codeword[i];
+        assert forall i :: 0 <= i < k-1 ==> !nodes[i].faulty ==> extractSymbols(nodes[..k-1])[i] == nodes[i].codeword[i];
         var prefix := nodes[..k];
-        assert extractSymbols(prefix) == extractSymbols(prefix[..|prefix|-1]) + [prefix[|prefix|-1].codeword[prefix[|prefix|-1].id]];
-        assert prefix[..|prefix|-1] == nodes[..k-1];
-        assert nodes[k-1].id == k-1;
+        if !prefix[|prefix|-1].faulty {
+            assert extractSymbols(prefix) == extractSymbols(prefix[..|prefix|-1]) + [prefix[|prefix|-1].codeword[prefix[|prefix|-1].id]];
+            assert prefix[..|prefix|-1] == nodes[..k-1];
+            assert nodes[k-1].id == k-1;
+        } else {
+            assert nodes[k-1].faulty;
+            assert nodes[..k] == nodes[..k-1] + [nodes[k-1]];
+        }
     }
 }
 
